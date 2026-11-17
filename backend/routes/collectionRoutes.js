@@ -6,6 +6,8 @@ const authMiddleware = require('../middleware/auth');
 // All collection routes require authentication
 router.use(authMiddleware);
 
+router.get('/', collectionController.list);
+
 // POST /api/collections
 router.post('/', collectionController.create);
 

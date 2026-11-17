@@ -1,18 +1,41 @@
 const collectionService = require('../services/collectionService');
 
+async function list(req, res, next) {
+  try {
+    const collections = await collectionService.listCollections(req.user.userId);
+    res.status(200).json({ collections });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Accept canonical UUIDs and positive PostgreSQL bigint IDs without number conversion.
+function isValidId(value) {
+  return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)
+    || (/^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n);
+}
+
+function validationError(res, message) {
+  return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message } });
+}
+
 // POST /api/collections
 async function create(req, res, next) {
   try {
-    const { title, currency } = req.body;
+    const { title, currency = 'EGP' } = req.body ?? {};
     const userId = req.user.userId; // Extracted from authMiddleware
 
-    if (!title) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Collection title is required.' }
-      });
+    if (typeof title !== 'string' || !title.trim()) {
+      return validationError(res, 'Collection title is required.');
     }
 
-    const newCollection = await collectionService.createCollection(userId, title, currency || 'EGP');
+    if (typeof currency !== 'string' || !/^[a-z]{3}$/i.test(currency.trim())) {
+      return validationError(res, 'Currency must be a three-letter code.');
+    }
+
+    const newCollection = await collectionService.createCollection(
+      userId, title.trim(), currency.trim().toUpperCase()
+    );
 
     res.status(201).json({
       message: 'Collection created successfully',
@@ -28,6 +51,10 @@ async function getMembers(req, res, next) {
   try {
     const collectionId = req.params.id;
     const userId = req.user.userId;
+
+    if (!isValidId(collectionId)) {
+      return validationError(res, 'Invalid collection ID.');
+    }
 
     // Verify if user is owner
     const role = await collectionService.getUserRole(collectionId, userId);
@@ -52,12 +79,13 @@ async function addMember(req, res, next) {
   try {
     const collectionId = req.params.id;
     const userId = req.user.userId;
-    const { email } = req.body;
+    const { email } = req.body ?? {};
 
-    if (!email) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'User email is required.' }
-      });
+    if (!isValidId(collectionId)) {
+      return validationError(res, 'Invalid collection ID.');
+    }
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(email.trim())) {
+      return validationError(res, 'A valid user email is required.');
     }
 
     // Verify if user is owner
@@ -68,7 +96,7 @@ async function addMember(req, res, next) {
       });
     }
 
-    const newMember = await collectionService.addMemberByEmail(collectionId, email, 'viewer');
+    const newMember = await collectionService.addMemberByEmail(collectionId, email.trim(), 'viewer');
 
     res.status(201).json({
       message: 'Member added successfully',
@@ -91,18 +119,23 @@ async function removeMember(req, res, next) {
     const targetUserId = req.params.userId;
     const currentUserId = req.user.userId;
 
-    // Verify if current user is owner
-    const role = await collectionService.getUserRole(collectionId, currentUserId);
-    if (role !== 'owner') {
+    if (!isValidId(collectionId) || !isValidId(targetUserId)) {
+      return validationError(res, 'Invalid collection or user ID.');
+    }
+
+    // The service applies both role checks as part of the delete statement.
+    const { authorized, removed } = await collectionService.removeMember(
+      collectionId, targetUserId, currentUserId
+    );
+    if (!authorized) {
       return res.status(403).json({
         error: { code: 'FORBIDDEN', message: 'Only the collection owner can remove members.' }
       });
     }
 
-    const removed = await collectionService.removeMember(collectionId, targetUserId);
     if (!removed) {
       return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Member not found in this collection.' }
+        error: { code: 'NOT_FOUND', message: 'Viewer not found in this collection.' }
       });
     }
 
@@ -113,6 +146,7 @@ async function removeMember(req, res, next) {
 }
 
 module.exports = {
+  list,
   create,
   getMembers,
   addMember,

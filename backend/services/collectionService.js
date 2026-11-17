@@ -1,23 +1,34 @@
 const sql = require('../db/db');
 
+// Only return collections the authenticated user belongs to.
+async function listCollections(userId) {
+  return await sql`
+    SELECT c.id, c.title, c.currency, cm.role
+    FROM collection_members cm
+    JOIN collections c ON c.id = cm.collection_id
+    WHERE cm.user_id = ${userId}
+    ORDER BY c.id
+  `;
+}
+
 // Create a new collection and assign the creator as 'owner'
 async function createCollection(userId, title, currency = 'EGP') {
-  const result = await sql.begin(async (sql) => {
-    const [collection] = await sql`
+  // Execute both inserts atomically in one Neon HTTP query.
+  const [collection] = await sql`
+    WITH new_collection AS (
       INSERT INTO collections (title, currency)
       VALUES (${title}, ${currency})
-      RETURNING id, title, currency;
-    `;
-
-    await sql`
+      RETURNING id, title, currency
+    ), new_owner AS (
       INSERT INTO collection_members (collection_id, user_id, role)
-      VALUES (${collection.id}, ${userId}, 'owner');
-    `;
-
-    return collection;
-  });
-
-  return result;
+      SELECT id, ${userId}, 'owner' FROM new_collection
+      RETURNING collection_id
+    )
+    SELECT c.id, c.title, c.currency
+    FROM new_collection c
+    JOIN new_owner o ON o.collection_id = c.id
+  `;
+  return collection;
 }
 
 // Get the user's role in a specific collection
@@ -58,17 +69,30 @@ async function addMemberByEmail(collectionId, email, role = 'viewer') {
   return member;
 }
 
-// Remove a member from the collection
-async function removeMember(collectionId, targetUserId) {
-  const result = await sql`
-    DELETE FROM collection_members 
-    WHERE collection_id = ${collectionId} AND user_id = ${targetUserId}
-    RETURNING user_id;
+async function removeMember(collectionId, targetUserId, requesterId) {
+  // Authorize the request and restrict deletion to viewers in the same statement.
+  const [result] = await sql`
+    WITH requester AS (
+      SELECT 1 FROM collection_members
+      WHERE collection_id = ${collectionId}
+        AND user_id = ${requesterId}
+        AND role = 'owner'
+    ), removed AS (
+      DELETE FROM collection_members
+      WHERE collection_id = ${collectionId}
+        AND user_id = ${targetUserId}
+        AND role = 'viewer'
+        AND EXISTS (SELECT 1 FROM requester)
+      RETURNING user_id
+    )
+    SELECT EXISTS (SELECT 1 FROM requester) AS authorized,
+           EXISTS (SELECT 1 FROM removed) AS removed
   `;
-  return result[0];
+  return result;
 }
 
 module.exports = {
+  listCollections,
   createCollection,
   getUserRole,
   getCollectionMembers,
