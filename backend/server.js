@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const sql = require('./db/db');
+const authRoutes = require('./routes/authRoutes');
+const collectionRoutes = require('./routes/collectionRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +38,10 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
+
+// Register API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/collections', collectionRoutes);
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
