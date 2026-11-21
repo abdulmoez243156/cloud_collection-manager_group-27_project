@@ -5,6 +5,7 @@ const sql = require('./db/db');
 const authRoutes = require('./routes/authRoutes');
 const collectionRoutes = require('./routes/collectionRoutes');
 const valuationRoutes = require('./routes/valuationRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +43,7 @@ app.get('/api/health', async (req, res) => {
 
 // Register API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/collections/:collectionId/wishlist', wishlistRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api', valuationRoutes);
 
