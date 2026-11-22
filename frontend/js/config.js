@@ -13,8 +13,8 @@ const API_BASE_URL = isLocal
 
 // External API: Cloudflare Turnstile site key (public, meant to be visible).
 // Locally Cloudflare's TEST key is used: its widget always passes.
-// Deployment: replace YOUR-TURNSTILE-SITE-KEY with the real site key.
+// On Vercel the real site key of the collection-manager widget is used.
 // The SECRET key never goes in frontend code: only in backend/.env and Vercel.
 const TURNSTILE_SITE_KEY = isLocal
   ? '1x00000000000000000000AA'
-  : 'YOUR-TURNSTILE-SITE-KEY';
+  : '0x4AAAAAAGNZLFadxem13QkL';
