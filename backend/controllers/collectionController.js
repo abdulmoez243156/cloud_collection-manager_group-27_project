@@ -96,7 +96,8 @@ async function addMember(req, res, next) {
       });
     }
 
-    const newMember = await collectionService.addMemberByEmail(collectionId, email.trim(), 'viewer');
+    // Emails are stored in lower case (see authController.register).
+    const newMember = await collectionService.addMemberByEmail(collectionId, email.trim().toLowerCase(), 'viewer');
 
     res.status(201).json({
       message: 'Member added successfully',
@@ -106,6 +107,12 @@ async function addMember(req, res, next) {
     if (error.message === 'USER_NOT_FOUND') {
       return res.status(404).json({
         error: { code: 'USER_NOT_FOUND', message: 'User with this email does not exist.' }
+      });
+    }
+    // The user is already a member: the primary key (collection, user) blocks a second row.
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: { code: 'ALREADY_MEMBER', message: 'This user already has access to the collection.' }
       });
     }
     next(error);

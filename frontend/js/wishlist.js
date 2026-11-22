@@ -3,13 +3,17 @@
 const byId = id => document.getElementById(id);
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 const configuredOrigin = document.querySelector('meta[name="collection-api-origin"]').content.trim();
-const origin = (configuredOrigin || (local ? 'http://localhost:3000' : location.origin)).replace(/\/$/, '');
+// Integration: use the shared API address from config.js when the meta tag is empty.
+const sharedOrigin = typeof API_BASE_URL === 'string' ? API_BASE_URL.replace(/\/api\/?$/, '') : '';
+const origin = (configuredOrigin || sharedOrigin || (local ? 'http://localhost:3000' : location.origin)).replace(/\/$/, '');
 const tokenKey = 'collection-manager.wishlist.token';
 const editor = byId('editor');
 const filters = byId('filters');
 const planner = byId('planner');
 const selection = byId('collections');
-let token = sessionStorage.getItem(tokenKey);
+// Integration: reuse the login from the Home page (shared session in api.js).
+const shared = typeof CM === 'object' ? CM : null;
+let token = shared ? shared.session.token() : sessionStorage.getItem(tokenKey);
 let collections = [];
 let collection;
 let editingId;
@@ -143,6 +147,7 @@ async function refreshAfterChange(message) {
 
 async function showCollection(id) {
   collection = collections.find(item => item.id === id);
+  if (shared && collection) shared.selectedCollection.set(collection); // Integration: same collection on every page
   byId('collection-content').hidden = !collection;
   byId('editor-panel').hidden = collection?.role !== 'owner';
   byId('access').textContent = collection
@@ -167,7 +172,7 @@ async function signIn() {
   byId('account').hidden = true;
   byId('workspace').hidden = false;
   byId('sign-out').hidden = false;
-  await loadCollections();
+  await loadCollections(shared?.selectedCollection.get()?.id); // Integration: open the selected collection
 }
 
 function signOut() {
@@ -175,6 +180,7 @@ function signOut() {
   collection = undefined;
   collections = [];
   sessionStorage.removeItem(tokenKey);
+  if (shared) shared.session.clear(); // Integration: sign out of the whole app
   byId('workspace').hidden = true;
   byId('account').hidden = false;
   byId('sign-out').hidden = true;
@@ -211,6 +217,7 @@ onSubmit('login', async form => {
   const result = await api('/auth/login', { method: 'POST', body: values(form), authorized: false });
   token = result.token;
   sessionStorage.setItem(tokenKey, token);
+  if (shared) shared.session.save(result.token, result.user); // Integration: shared login
   form.reset();
   await signIn();
 });

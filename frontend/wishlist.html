@@ -6,12 +6,20 @@
   <meta name="collection-api-origin" content="">
   <title>Wishlist | Collection Manager</title>
   <link rel="stylesheet" href="./css/wishlist.css">
+  <!-- Integration: shared API address and login session, loaded before wishlist.js -->
+  <script src="./js/config.js" defer></script>
+  <script src="./js/api.js" defer></script>
   <script src="./js/wishlist.js" defer></script>
 </head>
 <body>
   <main>
     <header class="page-header">
-      <div><p class="brand">Collection Manager</p><h1>Wishlist</h1></div>
+      <div>
+        <p class="brand">Collection Manager</p>
+        <!-- Integration: links to the other pages of the app -->
+        <nav class="app-links" aria-label="Main"><a href="index.html">Home</a><a href="catalogue.html">Catalogue</a><a href="wishlist.html" aria-current="page">Wishlist</a></nav>
+        <h1>Wishlist</h1>
+      </div>
       <button id="sign-out" class="secondary" hidden>Sign out</button>
     </header>
     <p id="notice" role="status" aria-live="polite" hidden></p>
