@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collection Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="app-header" class="app-header"></header>
+
+  <main class="page">
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <!-- Shown when nobody is signed in -->
+    <div id="signed-out" hidden>
+      <section class="hero">
+        <h1>Every item in your collection, in one place.</h1>
+        <p>Catalogue coins, stamps, sneakers and more with their condition, plan the pieces you
+          still want, and track what your collection is worth. Invite friends to view it.</p>
+      </section>
+
+      <div class="grid-2">
+        <section class="card" aria-labelledby="login-title">
+          <h2 id="login-title">Sign in</h2>
+          <form id="login-form" class="form">
+            <label>Email
+              <input name="email" type="email" autocomplete="email" maxlength="254" required>
+            </label>
+            <label>Password
+              <input name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="btn btn-primary">Sign in</button>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="register-title">
+          <h2 id="register-title">Create an account</h2>
+          <form id="register-form" class="form">
+            <label>Name
+              <input name="name" autocomplete="name" maxlength="150" required>
+            </label>
+            <label>Email
+              <input name="email" type="email" autocomplete="email" maxlength="254" required>
+            </label>
+            <label><span>Password <span class="hint">at least 8 characters</span></span>
+              <input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+            </label>
+            <button type="submit" class="btn btn-primary">Create account</button>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <!-- Shown after sign-in -->
+    <div id="signed-in" hidden>
+      <div class="page-title">
+        <div>
+          <h1 id="welcome">Welcome</h1>
+          <p class="muted">Choose a collection, then open one of its services.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <section class="card" aria-labelledby="collections-title">
+          <h2 id="collections-title">Your collections</h2>
+          <ul id="collection-list" class="collection-list"></ul>
+          <details class="disclosure" id="new-collection-box">
+            <summary>New collection</summary>
+            <form id="collection-form" class="form form-inline">
+              <label class="grow">Title
+                <input name="title" maxlength="150" required placeholder="e.g. Egyptian coins">
+              </label>
+              <label>Currency
+                <input name="currency" value="EGP" pattern="[A-Za-z]{3}" maxlength="3" required class="input-short">
+              </label>
+              <button type="submit" class="btn btn-primary">Create</button>
+            </form>
+          </details>
+        </section>
+
+        <section class="card" aria-labelledby="services-title">
+          <h2 id="services-title">Services</h2>
+          <p id="services-hint" class="muted">Select a collection to open its services.</p>
+          <div class="tiles">
+            <a class="tile" id="tile-catalogue" href="catalogue.html">
+              <span class="tile-title">Catalogue</span>
+              <span class="tile-text">Items with condition and acquisition details, search, filters and duplicate checks.</span>
+            </a>
+            <a class="tile" id="tile-wishlist" href="wishlist.html">
+              <span class="tile-title">Wishlist</span>
+              <span class="tile-text">Wanted items by priority and budget, plus a purchase planner.</span>
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <!-- Only the collection owner can manage members (the API enforces this too) -->
+      <section class="card" id="members-card" aria-labelledby="members-title" hidden>
+        <h2 id="members-title">People with access</h2>
+        <p class="muted">Viewers can see the catalogue, wishlist and values but cannot change anything.</p>
+        <ul id="member-list" class="member-list"></ul>
+        <form id="member-form" class="form form-inline">
+          <label class="grow">Invite a viewer by email
+            <input name="email" type="email" maxlength="254" required placeholder="friend@example.com">
+          </label>
+          <button type="submit" class="btn btn-primary">Add viewer</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <!-- config.js (API address) must load before the other scripts. defer keeps this order. -->
+  <script src="js/config.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/auth.js" defer></script>
+</body>
+</html>
