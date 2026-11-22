@@ -6,10 +6,10 @@
 // On Vercel they call the deployed API project.
 const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
-// Deployment: replace YOUR-API-PROJECT with the domain of the Vercel API project.
+// The domain of the deployed Vercel API project.
 const API_BASE_URL = isLocal
   ? 'http://localhost:3000/api'
-  : 'https://YOUR-API-PROJECT.vercel.app/api';
+  : 'https://collection-manager-api.vercel.app/api';
 
 // External API: Cloudflare Turnstile site key (public, meant to be visible).
 // Locally Cloudflare's TEST key is used: its widget always passes.
