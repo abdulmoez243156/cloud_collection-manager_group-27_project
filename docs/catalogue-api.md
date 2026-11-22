@@ -119,51 +119,52 @@ are returned, most similar first.
 ## Test plan
 
 IDs match the requests in `postman/Catalogue.postman_collection.json`
-(folder *1. Full API test (local)*). Fill in *Actual* from the Postman run.
+(folder *1. Full API test (local)*). Results from the Postman collection runner: local folder
+56 requests, 93/93 checks passed; deployed folder (L01-L13) all passed. Screenshots are in the report.
 
 | ID | Test | Expected | Actual | Pass/Fail |
 |---|---|---|---|---|
-| C01 | Owner creates an item with all fields | 201; stored values returned, cost `120.50`, not archived | | |
-| C03 | Blank title | 400 VALIDATION_ERROR | | |
-| C04 | Condition `shiny` | 400 VALIDATION_ERROR | | |
-| C05 | Negative cost | 400 VALIDATION_ERROR | | |
-| C06 | Acquisition date in the future | 400 VALIDATION_ERROR | | |
-| C07 | Impossible date 2023-02-30 | 400 VALIDATION_ERROR | | |
-| C08 | Body sent as text/plain | 415 UNSUPPORTED_MEDIA_TYPE | | |
-| C09 | Viewer creates an item | 403 FORBIDDEN | | |
-| C10 | Non-member creates an item | 404 | | |
-| C11 | No login token | 401 | | |
-| C12 | Edit condition and description | 200; title unchanged | | |
-| C13 | Clear the cost with `null` | 200; cost is null | | |
-| C14 | Viewer edits | 403 | | |
-| C15 | Edit an unknown item | 404 ITEM_NOT_FOUND | | |
-| C16 | Edit with an empty body | 400 | | |
-| C17-C19 | Archive, check hidden from default list, restore | 200, not listed, 200 | | |
-| S01 | List active items | 200; count 2 | | |
-| S02 | Search `SILVER` | 200; one match (case-insensitive) | | |
-| S03 | Search a word from the description | 200; one match | | |
-| S04 | Filter category `sneakers` | 200; only Sneakers | | |
-| S05 | Filter condition `mint` | 200; only mint | | |
-| S06 | Sort by title | 200; A-Z order | | |
-| S08 | Invalid filter value | 400 | | |
-| S09 | Missing collection_id | 400 | | |
-| S10 / S11 | List as viewer / as non-member | 200 / 404 | | |
-| S12 | Categories | 200; Coins and Sneakers | | |
-| S13-S15 | Details as owner / viewer / non-member | 200 role owner / 200 role viewer / 404 | | |
-| D01 | Duplicate check `1952 silver pound!` in another category | 200; `same_title` match | | |
-| D02 | Duplicate check excluding the item itself | 200; no duplicates | | |
-| D03 | Create `Air Jordan 1 Chicago 1985` in `sneakers` | 409 POSSIBLE_DUPLICATE; `similar_title` | | |
-| D04 | Same with `confirm_duplicate: true` | 201; warning returned | | |
-| D05 | Same word in another category | 201 | | |
-| D06 | Edit a title into an existing one | 409 | | |
-| T01 | Create without Turnstile token | 403 BOT_CHECK_FAILED | | |
-| T02 | Invalid login token | 401 INVALID_TOKEN | | |
-| T03 | Unknown route | 404 ROUTE_NOT_FOUND | | |
-| T04 | Security headers on responses | nosniff, DENY, no-store, no X-Powered-By | | |
-| I01 | Record a valuation on a catalogue item | 201 (Valuation service) | | |
-| I02 | Item details after the valuation | 200; latest_value `250.00`, valuation_count 1 | | |
-| L10 | Deployed API with Cloudflare's test token | 403: real Turnstile key active | | |
-| L11 | Deployed API with a forged token | 403 BOT_CHECK_FAILED | | |
+| C01 | Owner creates an item with all fields | 201; stored values returned, cost `120.50`, not archived | 201; cost `120.50`, `is_archived` false | Pass |
+| C03 | Blank title | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR "Title is required." | Pass |
+| C04 | Condition `shiny` | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR | Pass |
+| C05 | Negative cost | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR | Pass |
+| C06 | Acquisition date in the future | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR | Pass |
+| C07 | Impossible date 2023-02-30 | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR "not a real date" | Pass |
+| C08 | Body sent as text/plain | 415 UNSUPPORTED_MEDIA_TYPE | 415 UNSUPPORTED_MEDIA_TYPE | Pass |
+| C09 | Viewer creates an item | 403 FORBIDDEN | 403 FORBIDDEN | Pass |
+| C10 | Non-member creates an item | 404 | 404 COLLECTION_NOT_FOUND | Pass |
+| C11 | No login token | 401 | 401 UNAUTHORIZED | Pass |
+| C12 | Edit condition and description | 200; title unchanged | 200; condition `mint`, title unchanged | Pass |
+| C13 | Clear the cost with `null` | 200; cost is null | 200; cost `null` | Pass |
+| C14 | Viewer edits | 403 | 403 FORBIDDEN | Pass |
+| C15 | Edit an unknown item | 404 ITEM_NOT_FOUND | 404 ITEM_NOT_FOUND | Pass |
+| C16 | Edit with an empty body | 400 | 400 VALIDATION_ERROR | Pass |
+| C17-C19 | Archive, check hidden from default list, restore | 200, not listed, 200 | 200, only the other item listed, 200 | Pass |
+| S01 | List active items | 200; count 2 | 200; 2 items | Pass |
+| S02 | Search `SILVER` | 200; one match (case-insensitive) | 200; 1 item (1952 Silver Pound) | Pass |
+| S03 | Search a word from the description | 200; one match | 200; 1 item | Pass |
+| S04 | Filter category `sneakers` | 200; only Sneakers | 200; 1 item, Sneakers | Pass |
+| S05 | Filter condition `mint` | 200; only mint | 200; 1 item, mint | Pass |
+| S06 | Sort by title | 200; A-Z order | 200; 1952 Silver Pound, then Air Jordan 1 Chicago | Pass |
+| S08 | Invalid filter value | 400 | 400 VALIDATION_ERROR | Pass |
+| S09 | Missing collection_id | 400 | 400 VALIDATION_ERROR | Pass |
+| S10 / S11 | List as viewer / as non-member | 200 / 404 | 200 (2 items) / 404 | Pass |
+| S12 | Categories | 200; Coins and Sneakers | 200; `["Coins","Sneakers"]` | Pass |
+| S13-S15 | Details as owner / viewer / non-member | 200 role owner / 200 role viewer / 404 | 200 `your_role` owner / 200 `your_role` viewer / 404 | Pass |
+| D01 | Duplicate check `1952 silver pound!` in another category | 200; `same_title` match | 200; `same_title` | Pass |
+| D02 | Duplicate check excluding the item itself | 200; no duplicates | 200; `has_duplicates` false | Pass |
+| D03 | Create `Air Jordan 1 Chicago 1985` in `sneakers` | 409 POSSIBLE_DUPLICATE; `similar_title` | 409 POSSIBLE_DUPLICATE; `similar_title` (score 0.8) | Pass |
+| D04 | Same with `confirm_duplicate: true` | 201; warning returned | 201; matching item returned in `duplicates` | Pass |
+| D05 | Same word in another category | 201 | 201 | Pass |
+| D06 | Edit a title into an existing one | 409 | 409 POSSIBLE_DUPLICATE; `same_title` | Pass |
+| T01 | Create without Turnstile token | 403 BOT_CHECK_FAILED | 403 BOT_CHECK_FAILED | Pass |
+| T02 | Invalid login token | 401 INVALID_TOKEN | 401 INVALID_TOKEN | Pass |
+| T03 | Unknown route | 404 ROUTE_NOT_FOUND | 404 ROUTE_NOT_FOUND | Pass |
+| T04 | Security headers on responses | nosniff, DENY, no-store, no X-Powered-By | nosniff, DENY, no-store; no X-Powered-By | Pass |
+| I01 | Record a valuation on a catalogue item | 201 (Valuation service) | 201 | Pass |
+| I02 | Item details after the valuation | 200; latest_value `250.00`, valuation_count 1 | 200; `latest_value` `250.00`, `valuation_count` 1 | Pass |
+| L10 | Deployed API with Cloudflare's test token | 403: real Turnstile key active | 403 BOT_CHECK_FAILED | Pass |
+| L11 | Deployed API with a forged token | 403 BOT_CHECK_FAILED | 403 BOT_CHECK_FAILED | Pass |
 
 Locally the backend uses Cloudflare's test secret key, which accepts any token, so a forged
 token can only be shown failing on the deployed API with the real secret key (L10, L11).
