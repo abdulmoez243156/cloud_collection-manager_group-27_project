@@ -108,7 +108,7 @@ Every push to `main` redeploys both projects automatically.
 ## Testing
 
 `postman/Catalogue.postman_collection.json` tests the Catalogue service end to end:
-57 requests and 95 checks covering F1, F2, F3, validation errors, owner/viewer/outsider
+56 requests and 93 checks covering F1, F2, F3, validation errors, owner/viewer/outsider
 permissions, Turnstile, security headers and the integration with the Valuation service.
 
 - **Local:** import the collection and `Catalogue-Local.postman_environment.json`, select the
@@ -118,7 +118,8 @@ permissions, Turnstile, security headers and the integration with the Valuation 
 - **Deployed:** create an account, a collection and a few items on the live site, then set
   `baseUrl`, `liveEmail` and `livePassword` in `Catalogue-Production.postman_environment.json`
   and run folder *2. Live smoke test (deployed)*. Items cannot be created from Postman on
-  the live site: the real Turnstile key correctly refuses test tokens (check L10).
+  the live site: the real Turnstile key correctly refuses test and forged tokens (checks L10, L11).
+  Locally, Cloudflare's test secret key accepts any token, so only a missing token is refused there.
 
 `postman/Collection Manager.postman_collection.json` covers authentication and collections.
 The Catalogue API contract and test plan are in [`docs/catalogue-api.md`](docs/catalogue-api.md).

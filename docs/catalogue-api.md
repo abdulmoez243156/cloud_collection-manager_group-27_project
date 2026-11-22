@@ -157,13 +157,16 @@ IDs match the requests in `postman/Catalogue.postman_collection.json`
 | D05 | Same word in another category | 201 | | |
 | D06 | Edit a title into an existing one | 409 | | |
 | T01 | Create without Turnstile token | 403 BOT_CHECK_FAILED | | |
-| T02 | Create with a forged token | 403 BOT_CHECK_FAILED | | |
-| T03 | Invalid login token | 401 INVALID_TOKEN | | |
-| T04 | Unknown route | 404 ROUTE_NOT_FOUND | | |
-| T05 | Security headers on responses | nosniff, DENY, no-store, no X-Powered-By | | |
+| T02 | Invalid login token | 401 INVALID_TOKEN | | |
+| T03 | Unknown route | 404 ROUTE_NOT_FOUND | | |
+| T04 | Security headers on responses | nosniff, DENY, no-store, no X-Powered-By | | |
 | I01 | Record a valuation on a catalogue item | 201 (Valuation service) | | |
 | I02 | Item details after the valuation | 200; latest_value `250.00`, valuation_count 1 | | |
 | L10 | Deployed API with Cloudflare's test token | 403: real Turnstile key active | | |
+| L11 | Deployed API with a forged token | 403 BOT_CHECK_FAILED | | |
+
+Locally the backend uses Cloudflare's test secret key, which accepts any token, so a forged
+token can only be shown failing on the deployed API with the real secret key (L10, L11).
 
 ### Browser checks (deployed site)
 

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "1685af14-2519-5390-8394-a707b26a87d7",
     "name": "Collection Manager - Catalogue Service",
-    "description": "Tests for the Catalogue service (F1 maintain item records, F2 find items, F3 duplicate detection), its Cloudflare Turnstile protection and its integration with the Valuation service.\n\nFolder 1 runs against a local backend that uses Cloudflare's TEST Turnstile key: it creates its own users and collection, so it can be run any number of times. Folder 2 runs against the deployed API with an account and items created on the website (the real Turnstile key refuses test tokens).",
+    "description": "Tests for the Catalogue service (F1 maintain item records, F2 find items, F3 duplicate detection), its Cloudflare Turnstile protection and its integration with the Valuation service.\n\nFolder 1 runs against a local backend that uses Cloudflare's TEST Turnstile secret key, which accepts any token, so only the missing-token case can be refused locally. It creates its own users and collection, so it can be run any number of times. Folder 2 runs against the deployed API with an account and items created on the website (the real Turnstile key refuses test tokens).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -2348,58 +2348,7 @@
               }
             },
             {
-              "name": "T02 Create with forged Turnstile token -> 403",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
-                      "pm.test(\"Error code is BOT_CHECK_FAILED\", () => pm.expect(pm.response.json().error.code).to.eql(\"BOT_CHECK_FAILED\"));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "X-Turnstile-Token",
-                    "value": "forged-token"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/items",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "items"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"collection_id\": \"{{collectionId}}\",\n  \"title\": \"Bot attempt\",\n  \"category\": \"Misc\",\n  \"condition\": \"good\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              }
-            },
-            {
-              "name": "T03 Invalid login token -> 401",
+              "name": "T02 Invalid login token -> 401",
               "event": [
                 {
                   "listen": "test",
@@ -2439,7 +2388,7 @@
               }
             },
             {
-              "name": "T04 Unknown route -> 404",
+              "name": "T03 Unknown route -> 404",
               "event": [
                 {
                   "listen": "test",
@@ -2473,7 +2422,7 @@
               }
             },
             {
-              "name": "T05 Security headers on API responses",
+              "name": "T04 Security headers on API responses",
               "event": [
                 {
                   "listen": "test",
@@ -3071,7 +3020,59 @@
           }
         },
         {
-          "name": "L11 Invalid login token -> 401",
+          "name": "L11 Forged Turnstile token -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is BOT_CHECK_FAILED\", () => pm.expect(pm.response.json().error.code).to.eql(\"BOT_CHECK_FAILED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Turnstile-Token",
+                "value": "forged-token"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"collection_id\": \"{{collectionId}}\",\n  \"title\": \"Bot attempt\",\n  \"category\": \"Misc\",\n  \"condition\": \"good\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Only meaningful with the real secret key: Cloudflare's test secret key accepts any token."
+          }
+        },
+        {
+          "name": "L12 Invalid login token -> 401",
           "event": [
             {
               "listen": "test",
@@ -3110,7 +3111,7 @@
           }
         },
         {
-          "name": "L12 Security headers",
+          "name": "L13 Security headers",
           "event": [
             {
               "listen": "test",
