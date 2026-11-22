@@ -41,3 +41,8 @@ summary { cursor: pointer; font-weight: 650; }
   form > label { width: 100%; }
   form > button { margin-top: .25rem; }
 }
+
+/* Integration: navigation links shared with the rest of the app */
+.app-links { display: flex; gap: 1rem; margin: .25rem 0 .5rem; font-weight: 650; }
+.app-links a { color: #234e38; }
+.app-links a[aria-current="page"] { text-decoration: none; color: #17251e; }
