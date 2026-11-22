@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalogue | Collection Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="app-header" class="app-header"></header>
+
+  <main class="page">
+    <div class="page-title">
+      <div>
+        <h1>Catalogue</h1>
+        <p id="collection-line" class="muted"></p>
+      </div>
+      <p id="item-count" class="pill" hidden></p>
+    </div>
+
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <section id="no-collection" class="card" hidden>
+      <h2>No collection selected</h2>
+      <p>Choose or create a collection on the <a href="index.html">Home page</a> first.</p>
+    </section>
+
+    <div id="catalogue" class="layout" hidden>
+      <!-- F1 + F3: add / edit form (owners only) -->
+      <section id="editor-card" class="card editor" aria-labelledby="editor-title" hidden>
+        <h2 id="editor-title">Add an item</h2>
+        <form id="item-form" class="form">
+          <label>Title
+            <input name="title" maxlength="150" required placeholder="e.g. 1952 Silver Pound">
+          </label>
+          <label>Category
+            <input name="category" maxlength="100" required list="category-options" placeholder="e.g. Coins">
+          </label>
+          <datalist id="category-options"></datalist>
+
+          <!-- F3: live duplicate warning while typing -->
+          <div id="duplicate-hint" class="dup-hint" aria-live="polite" hidden></div>
+
+          <label>Condition
+            <select name="condition" required>
+              <option value="">Choose a condition</option>
+              <option value="mint">Mint</option>
+              <option value="near_mint">Near mint</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+              <option value="poor">Poor</option>
+            </select>
+          </label>
+          <label><span>Description <span class="hint">optional</span></span>
+            <textarea name="description" maxlength="1000" rows="3" placeholder="Mint mark, edition, size, notes..."></textarea>
+          </label>
+          <div class="form-row">
+            <label><span>Acquired on <span class="hint">optional</span></span>
+              <input name="acquisition_date" type="date">
+            </label>
+            <label><span>Cost paid <span class="hint">optional</span></span>
+              <input name="acquisition_cost" type="number" min="0" max="9999999999.99" step="0.01" inputmode="decimal">
+            </label>
+          </div>
+          <!-- External API: Cloudflare Turnstile widget, drawn here for new items only -->
+          <div id="turnstile-widget" class="turnstile"></div>
+          <div class="form-actions">
+            <button type="submit" id="save-item" class="btn btn-primary">Add item</button>
+            <button type="button" id="cancel-edit" class="btn btn-secondary" hidden>Cancel</button>
+          </div>
+        </form>
+
+        <!-- F3: shown when the API answers 409 POSSIBLE_DUPLICATE -->
+        <div id="duplicate-confirm" class="dup-confirm" role="alertdialog" aria-labelledby="dup-title" hidden>
+          <h3 id="dup-title">This looks like an item you already have</h3>
+          <ul id="duplicate-list" class="dup-list"></ul>
+          <div class="form-actions">
+            <button type="button" id="confirm-save" class="btn btn-primary">Save anyway</button>
+            <button type="button" id="dismiss-duplicate" class="btn btn-secondary">Go back and edit</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- F2: search, filter and browse -->
+      <section class="card list-card" aria-labelledby="items-title">
+        <h2 id="items-title">Items</h2>
+        <form id="filters" class="filters" role="search">
+          <label class="grow">Search
+            <input name="search" type="search" maxlength="150" placeholder="Title or description">
+          </label>
+          <label>Category
+            <select name="category"><option value="">All categories</option></select>
+          </label>
+          <label>Condition
+            <select name="condition">
+              <option value="">Any condition</option>
+              <option value="mint">Mint</option>
+              <option value="near_mint">Near mint</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+              <option value="poor">Poor</option>
+            </select>
+          </label>
+          <label>Show
+            <select name="archived">
+              <option value="false">Active items</option>
+              <option value="true">Archived items</option>
+              <option value="all">All items</option>
+            </select>
+          </label>
+          <label>Sort
+            <select name="sort">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title">Title A-Z</option>
+            </select>
+          </label>
+          <button type="reset" class="btn btn-secondary">Clear</button>
+        </form>
+        <div id="items" class="item-grid" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- F2: item details -->
+  <dialog id="item-dialog" class="dialog" aria-labelledby="dialog-title">
+    <div class="dialog-head">
+      <h2 id="dialog-title">Item details</h2>
+      <button type="button" id="dialog-close" class="btn btn-ghost" aria-label="Close">Close</button>
+    </div>
+    <div id="dialog-body"></div>
+  </dialog>
+
+  <!-- Turnstile first, then config.js, api.js and catalogue.js (defer keeps this order).
+       render=explicit lets catalogue.js draw the widget with the right site key. -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/catalogue.js" defer></script>
+</body>
+</html>
