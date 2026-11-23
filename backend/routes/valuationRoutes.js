@@ -8,10 +8,13 @@ router.post('/items/:itemId/valuations', authMiddleware, ValuationController.add
 router.get('/items/:itemId/valuations', authMiddleware, ValuationController.getItemValuations);
 
 // 2. Correct (update) or Delete a valuation entry
+router.patch('/valuations/:id', authMiddleware, ValuationController.updateValuation);
 router.put('/valuations/:id', authMiddleware, ValuationController.updateValuation);
 router.delete('/valuations/:id', authMiddleware, ValuationController.deleteValuation);
 
 // 3. Collection valuation report (totals, unvalued counts, category breakdown)
+router.get('/reports/summary', authMiddleware, ValuationController.getSummaryReport);
+router.get('/reports/categories', authMiddleware, ValuationController.getCategoriesReport);
 router.get('/collections/:collectionId/report', authMiddleware, ValuationController.getCollectionReport);
 
 module.exports = router;

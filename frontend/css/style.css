@@ -335,3 +335,21 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); outline:
 /* ---------- Turnstile widget ---------- */
 .turnstile:empty { display: none; }
 .turnstile { min-height: 65px; }
+
+/* ---------- Valuation & Reports ---------- */
+.valuation-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+#valuation-workspace { margin-top: 1rem; }
+@media (min-width: 861px) {
+  #valuation-workspace:not(.layout-single) { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+}
+.valuation-history { list-style: none; margin: 0; padding: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.valuation-note { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.valuation-table { overflow-x: auto; }
+.valuation-table table { width: 100%; border-collapse: collapse; }
+.valuation-table th, .valuation-table td {
+  padding: .65rem .75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.valuation-table thead th { background: var(--brand-soft); }
+.valuation-table td { white-space: nowrap; }

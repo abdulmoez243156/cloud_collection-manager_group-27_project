@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valuation &amp; Reports | Collection Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="app-header" class="app-header"></header>
+
+  <main class="page">
+    <div class="page-title">
+      <div>
+        <h1>Valuation &amp; Reports</h1>
+        <p id="collection-line" class="muted" role="status">Loading collection…</p>
+      </div>
+    </div>
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <section id="no-collection" class="card" hidden>
+      <h2>No collection selected</h2>
+      <p>Choose or create a collection on the <a href="index.html">Home page</a> first.</p>
+    </section>
+
+    <div id="valuation-content" class="valuation-content" hidden>
+      <section class="card" aria-labelledby="history-title">
+        <h2 id="history-title">Item valuations</h2>
+        <label>Catalogue item
+          <select id="valuation-item" disabled>
+            <option value="">Loading catalogue items…</option>
+          </select>
+        </label>
+        <div id="valuation-workspace" class="layout layout-single">
+          <div>
+            <h3>Valuation history</h3>
+            <p id="history-status" class="muted" role="status">Choose an item to view its valuation history.</p>
+            <ol id="valuation-history" class="item-grid valuation-history"></ol>
+          </div>
+          <div id="valuation-editor" hidden>
+            <h3 id="editor-title">Add valuation</h3>
+            <form id="valuation-form" class="form" aria-labelledby="editor-title">
+              <label>Estimated value (<span id="amount-currency">EGP</span>)
+                <input name="amount" type="number" min="0" max="9999999999.99" step="0.01" inputmode="decimal" required>
+              </label>
+              <label>Valuation date
+                <input name="valuation_date" type="date" min="0001-01-01" max="9999-12-31" required>
+              </label>
+              <label><span>Note <span class="hint">optional</span></span>
+                <textarea name="note" maxlength="500" rows="3"></textarea>
+              </label>
+              <div class="form-actions">
+                <button id="save-valuation" class="btn btn-primary" type="submit">Add valuation</button>
+                <button id="cancel-edit" class="btn btn-secondary" type="button" hidden>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="summary-title">
+        <h2 id="summary-title">Collection summary</h2>
+        <p id="summary-status" class="muted" role="status"></p>
+        <dl id="valuation-summary" class="details" hidden>
+          <dt>Total estimated value</dt><dd id="total-value"></dd>
+          <dt>Active items</dt><dd id="total-items"></dd>
+          <dt>Valued items</dt><dd id="valued-items"></dd>
+          <dt>Unvalued items</dt><dd id="unvalued-items"></dd>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="categories-title">
+        <h2 id="categories-title">Category breakdown</h2>
+        <p id="categories-status" class="muted" role="status"></p>
+        <div id="category-table" class="valuation-table" role="region" aria-labelledby="categories-title" tabindex="0" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Category</th>
+                <th scope="col">Items</th>
+                <th scope="col">Valued</th>
+                <th scope="col">Unvalued</th>
+                <th scope="col">Estimated value</th>
+                <th scope="col">Latest valuation date</th>
+              </tr>
+            </thead>
+            <tbody id="category-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/config.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/valuation.js" defer></script>
+</body>
+</html>
