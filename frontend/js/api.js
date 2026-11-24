@@ -15,7 +15,8 @@ const CM = (() => {
   const NAV_LINKS = [
     { page: 'home', href: 'index.html', label: 'Home' },
     { page: 'catalogue', href: 'catalogue.html', label: 'Catalogue' },
-    { page: 'wishlist', href: 'wishlist.html', label: 'Wishlist' }
+    { page: 'wishlist', href: 'wishlist.html', label: 'Wishlist' },
+    { page: 'valuation', href: 'valuation.html', label: 'Valuation & Reports' }
   ];
 
   // -------------------------------------------------------------------------
