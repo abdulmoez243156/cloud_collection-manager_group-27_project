@@ -18,25 +18,39 @@ Owners can invite other collectors as read-only viewers.
 
 ## Architecture
 
-Three layers, each on a managed cloud service (Platform as a Service, serverless compute):
+Three layers. The main deployment runs on **Floci**, a local copy of AWS, as in Labs 7 and 8.
+Each service runs as its own AWS Lambda function behind one API Gateway, and the data stays
+in Neon Postgres:
 
-| Layer | What it is | Cloud service |
+| Layer | What it is | Cloud service (Floci) |
 |---|---|---|
-| Presentation | Static HTML, CSS and JavaScript (`frontend/`) | Vercel project (static hosting on Vercel's CDN) |
-| Application | Node.js + Express REST API (`backend/`) | Vercel project (one serverless Vercel Function) |
+| Presentation | Static HTML, CSS and JavaScript (`frontend/`) | Amazon S3 bucket `team27-collection-web` |
+| Application | Node.js + Express REST API (`backend/`), one Lambda per service | Amazon API Gateway (HTTP API) + AWS Lambda, with an IAM role and a CloudWatch log group per function |
 | Data | PostgreSQL | Neon (managed serverless Postgres) |
+
+| Service | Lambda function | AWS services it uses |
+|---|---|---|
+| Collection Catalogue | `team27-catalogue-api` | Lambda, API Gateway routes, IAM role, CloudWatch Logs |
+| Wishlist and Acquisition | `team27-wishlist-api` | Lambda, API Gateway routes, IAM role, CloudWatch Logs |
+| Valuation and Reports (+ accounts, collections) | `team27-valuation-api` | Lambda, API Gateway routes, IAM role, CloudWatch Logs |
+
+The same code is also deployed on Vercel + Neon as a public copy (see Deploy).
 
 External API: **Cloudflare Turnstile** protects catalogue item creation from bots.
 Diagrams (architecture, database, request flow): [`docs/architecture.md`](docs/architecture.md).
 
-The browser only talks to the API over HTTPS with JSON. Only the API holds the database
+The browser only talks to the API over HTTP(S) with JSON. Only the API holds the database
 connection string and the secret keys; they are kept in environment variables, never in Git.
 
 ## Repository structure
 
 ```
 backend/
-  server.js            Express app: middleware, routes, error handling
+  setupApp.js          Shared Express setup: middleware, health check, error handling
+  app.js               The full API (all three services), used by server.js and Vercel
+  server.js            Runs app.js on your PC (npm run dev)
+  lambdas/             One Lambda entry file per service (catalogue, wishlist, valuation)
+  scripts/zip-lambda.js  Builds backend/lambda.zip for Lambda (npm run zip)
   db/db.js             Neon connection (DATABASE_URL)
   db/schema.sql        Complete database schema (run once in Neon)
   db/migrations/       Wishlist migration (also included in schema.sql)
@@ -48,9 +62,12 @@ frontend/
   index.html           Home: sign in, register, collections, viewers
   catalogue.html       Catalogue service page
   wishlist.html        Wishlist service page
+  valuation.html       Valuation and Reports service page
   js/config.js         API address and Turnstile site key (the only file to edit per environment)
   js/api.js            Shared session, API request helper, header and UI helpers
   vercel.json          Security headers (Content-Security-Policy and others)
+infra/floci/           Floci: docker-compose.yml, deploy.sh, check.sh
+infra/iam/             IAM trust policy and one log policy per service
 postman/               API tests (see Testing)
 docs/                  Architecture, Catalogue API contract and test plan, Wishlist notes
 ```
@@ -80,7 +97,21 @@ Requirements: Node.js 20 or newer, Git, a free Neon account.
    Open http://localhost:8080. Locally, `config.js` uses the local API and Cloudflare's test
    Turnstile key, whose widget always passes.
 
-## Deploy (Vercel + Neon, free plans)
+## Deploy on Floci (main deployment)
+
+Step-by-step guide: [`docs/floci.md`](docs/floci.md). In short, in Git Bash:
+
+```
+docker compose -f infra/floci/docker-compose.yml up -d
+bash infra/floci/deploy.sh
+bash infra/floci/check.sh
+```
+
+`deploy.sh` creates the IAM roles and log groups, the three Lambda functions, the API Gateway
+routes and the S3 website, then prints the website address
+(`http://localhost:4566/team27-collection-web/index.html`).
+
+## Also deployed on Vercel + Neon
 
 The API and the frontend are two Vercel projects built from this one repository.
 
@@ -89,12 +120,11 @@ The API and the frontend are two Vercel projects built from this one repository.
    variables `DATABASE_URL`, `JWT_SECRET`, `TURNSTILE_SECRET_KEY` (real secret key),
    `CORS_ORIGINS` (`http://localhost:8080` for now) and `NODE_ENV=production`. Deploy, then
    open `https://<api-project>.vercel.app/api/health`.
-2. **Point the frontend at the API.** Replace `YOUR-API-PROJECT` in `frontend/js/config.js`
-   and in the `connect-src` part of `frontend/vercel.json` with the API domain.
-3. **Turnstile.** In Cloudflare: *Turnstile > Add widget*, hostname = the frontend's Vercel
-   domain (no `https://`). Put the **site key** in `config.js` (replacing
-   `YOUR-TURNSTILE-SITE-KEY`); the **secret key** goes only in the API project's
-   `TURNSTILE_SECRET_KEY`.
+2. **Point the frontend at the API.** The API domain is in `frontend/js/config.js` and in the
+   `connect-src` part of `frontend/vercel.json` (`collection-manager-api.vercel.app`).
+3. **Turnstile.** In Cloudflare: *Turnstile > Add widget*, hostnames = the frontend's Vercel
+   domain (no `https://`) and `localhost` (for Floci). The **site key** is in `config.js`;
+   the **secret key** goes only in the API project's `TURNSTILE_SECRET_KEY`.
 4. **Frontend project.** Import the repository again with **Root Directory** `frontend` and
    framework preset *Other*. No environment variables.
 5. **Allow the frontend origin.** Add the frontend URL to the API's `CORS_ORIGINS`
@@ -115,7 +145,10 @@ permissions, Turnstile, security headers and the integration with the Valuation 
   environment and run folder *1. Full API test (local)*. It creates its own users and
   collection, so it can be run repeatedly (restart the backend if the login rate limit of
   20 requests per 15 minutes is reached).
-- **Deployed:** create an account, a collection and a few items on the live site, then set
+- **Floci:** after `deploy.sh`, put the printed API address in `baseUrl` of
+  `Catalogue-Floci.postman_environment.json` (plus `liveEmail` and `livePassword`) and run
+  folder *2. Live smoke test (deployed)*.
+- **Vercel:** create an account, a collection and a few items on the live site, then set
   `baseUrl`, `liveEmail` and `livePassword` in `Catalogue-Production.postman_environment.json`
   and run folder *2. Live smoke test (deployed)*. Items cannot be created from Postman on
   the live site: the real Turnstile key correctly refuses test and forged tokens (checks L10, L11).
@@ -133,7 +166,10 @@ The Catalogue API contract and test plan are in [`docs/catalogue-api.md`](docs/c
 - Parameterised SQL only (Neon tagged templates), so input can never change a query.
 - Cloudflare Turnstile verified on the server before an item is created (fails closed).
 - Rate limiting (429): 20 login/registration requests and 300 API requests per IP per 15 minutes.
-- Security headers: strict Content-Security-Policy on the frontend (`vercel.json`) and on API responses.
+- Security headers: strict Content-Security-Policy on the frontend (a `<meta>` tag in every page,
+  because S3 cannot send headers, and `vercel.json` on Vercel) and security headers on API responses.
+- Least privilege on Floci: each Lambda has its own IAM role that may only write its own logs,
+  and only the Catalogue function receives the Turnstile secret key.
 - CORS allow-list, 32 KB request limit, secrets only in environment variables,
   generic error messages to clients and details only in server logs.
 

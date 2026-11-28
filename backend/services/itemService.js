@@ -5,14 +5,15 @@
 // cannot change a query (no SQL injection).
 const sql = require('../db/db');
 
-// Dates are cast to text so the JSON always carries plain 'YYYY-MM-DD'
-// strings with no timezone shift.
-// latest_value / latest_valuation_date come from the Valuation service's table:
-// a small subquery picks the most recent estimate for each item (newest date
-// first), or gives null when the item has never been valued.
+// Dates are cast to text so the JSON carries plain 'YYYY-MM-DD' strings with no
+// timezone shift. latest_value and latest_valuation_date come from the
+// Valuation service's table: the subquery takes the newest estimate of each
+// item, or null when the item has never been valued.
 
 // 1. List the items of one collection, with optional search and filters.
 async function listItems(collectionId, { search, category, condition, archived, sort }) {
+  const pattern = `%${search}%`;
+  const showArchived = archived === 'true';
   return sql`
     SELECT i.id, i.collection_id, i.title, i.category, i.description, i.condition,
            i.acquisition_date::text AS acquisition_date, i.acquisition_cost,
@@ -26,11 +27,9 @@ async function listItems(collectionId, { search, category, condition, archived, 
     FROM items i
     WHERE i.collection_id = ${collectionId}
       -- archived: 'false' = active only (default), 'true' = archived only, 'all' = both
-      AND (${archived} = 'all' OR i.is_archived = (${archived} = 'true'))
-      -- search matches the title or the description, ignoring upper/lower case
-      AND (${search} = ''
-           OR position(lower(${search}) IN lower(i.title)) > 0
-           OR position(lower(${search}) IN lower(coalesce(i.description, ''))) > 0)
+      AND (${archived} = 'all' OR i.is_archived = ${showArchived})
+      -- search matches the title or the description (ILIKE ignores upper/lower case)
+      AND (${search} = '' OR i.title ILIKE ${pattern} OR i.description ILIKE ${pattern})
       AND (${category}::text IS NULL OR lower(i.category) = lower(${category}))
       AND (${condition}::text IS NULL OR i.condition = ${condition})
     ORDER BY
@@ -53,8 +52,8 @@ async function listCategories(collectionId) {
 }
 
 // 3. One item plus the caller's role in the item's collection, in one query.
-// Returns undefined when the item does not exist OR the user is not a member,
-// so the API answers 404 in both cases and never reveals other collections.
+// Returns undefined when the item does not exist or the user is not a member,
+// so the API answers 404 in both cases and never shows other collections.
 async function findItemForUser(itemId, userId) {
   const [row] = await sql`
     SELECT i.id, i.collection_id, i.title, i.category, i.description, i.condition,
@@ -90,24 +89,19 @@ async function createItem(collectionId, item) {
   return created;
 }
 
-// 5. Update only the fields that were sent.
-// For each column: if the field was sent, use the new value (null clears an
-// optional field), otherwise keep the current value.
-async function updateItem(itemId, changes) {
-  const has = (field) => Object.hasOwn(changes, field);
+// 5. Save an edited item. The controller sends the whole item: the fields that
+// were changed plus the current values of the others.
+async function updateItem(itemId, item) {
   const [updated] = await sql`
-    UPDATE items SET
-      title            = CASE WHEN ${has('title')}::boolean THEN ${changes.title ?? null} ELSE title END,
-      category         = CASE WHEN ${has('category')}::boolean THEN ${changes.category ?? null} ELSE category END,
-      description      = CASE WHEN ${has('description')}::boolean THEN ${changes.description ?? null} ELSE description END,
-      condition        = CASE WHEN ${has('condition')}::boolean THEN ${changes.condition ?? null} ELSE condition END,
-      acquisition_date = CASE WHEN ${has('acquisition_date')}::boolean
-                              THEN ${changes.acquisition_date ?? null}::date ELSE acquisition_date END,
-      acquisition_cost = CASE WHEN ${has('acquisition_cost')}::boolean
-                              THEN ${changes.acquisition_cost ?? null}::numeric ELSE acquisition_cost END,
-      is_archived      = CASE WHEN ${has('is_archived')}::boolean
-                              THEN ${changes.is_archived ?? null}::boolean ELSE is_archived END,
-      updated_at       = now()
+    UPDATE items
+    SET title = ${item.title},
+        category = ${item.category},
+        description = ${item.description},
+        condition = ${item.condition},
+        acquisition_date = ${item.acquisition_date},
+        acquisition_cost = ${item.acquisition_cost},
+        is_archived = ${item.is_archived},
+        updated_at = now()
     WHERE id = ${itemId}
     RETURNING id, collection_id, title, category, description, condition,
               acquisition_date::text AS acquisition_date, acquisition_cost,
@@ -116,10 +110,9 @@ async function updateItem(itemId, changes) {
   return updated;
 }
 
-// 6. Duplicate detection: the candidates to compare against.
-// Collections are small (tens to hundreds of items), so the service reads the
-// titles once and the controller scores them in JavaScript, which keeps the
-// matching rules easy to read, test and explain.
+// 6. Duplicate detection: the items to compare a new title with. Collections
+// are small, so the titles are read once and compared in JavaScript
+// (services/duplicateCheck.js).
 async function listTitles(collectionId) {
   return sql`
     SELECT id, title, category, condition, is_archived
