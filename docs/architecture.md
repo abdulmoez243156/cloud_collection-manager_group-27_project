@@ -2,7 +2,62 @@
 
 GitHub draws the diagrams below automatically (Mermaid).
 
-## 1. Three-layer cloud architecture
+## 1. Three-layer cloud architecture (Floci, main deployment)
+
+```mermaid
+flowchart LR
+  user([Collector or viewer<br/>web browser])
+
+  subgraph floci["Floci on the laptop (local AWS, Labs 7-8)"]
+    s3["Amazon S3<br/>bucket team27-collection-web<br/>HTML, CSS, JavaScript"]
+    apigw["Amazon API Gateway<br/>HTTP API team27-collection-api<br/>routes per service, stage $default"]
+    subgraph lambdas["AWS Lambda (Express via serverless-http)"]
+      cat["team27-catalogue-api<br/>Catalogue"]
+      wish["team27-wishlist-api<br/>Wishlist"]
+      val["team27-valuation-api<br/>Valuation + accounts, collections"]
+    end
+    iam["IAM: one role per function<br/>(may write only its own logs)"]
+    cw["CloudWatch Logs<br/>/aws/lambda/&lt;function&gt;"]
+  end
+
+  subgraph neon["Neon (managed Postgres)"]
+    db[("users, collections, members<br/>items, valuations, wishlist")]
+  end
+
+  cf["Cloudflare Turnstile<br/>(external API)"]
+
+  user -- "HTTP: pages" --> s3
+  user -- "HTTP + JSON: fetch()<br/>Bearer token" --> apigw
+  user -. "widget token" .- cf
+  apigw -- "/api/items/..." --> cat
+  apigw -- "/api/collections/{id}/wishlist/..." --> wish
+  apigw -- "/api/auth, /api/collections,<br/>/api/valuations, /api/reports" --> val
+  cat & wish & val -- "SQL over TLS<br/>DATABASE_URL" --> db
+  cat -- "HTTPS siteverify<br/>secret key" --> cf
+  lambdas -. "assume role" .- iam
+  lambdas -- "request logs" --> cw
+```
+
+| Layer | Responsibility | Cloud service (Floci) | Talks to |
+|---|---|---|---|
+| Presentation | Forms, lists, loading and error messages; no secrets | Amazon S3 (static website) | API Gateway over HTTP/JSON; Turnstile widget |
+| Application | Login check, role check, validation, business rules, duplicate matching, summaries | API Gateway (HTTP API) + one AWS Lambda function per service, IAM roles, CloudWatch Logs | Neon over TLS; Cloudflare siteverify over HTTPS |
+| Data | Persistent records with relationships and `CHECK` rules | Neon Postgres | Reached only through the Lambda functions |
+
+Cloud model: **public cloud services (AWS, emulated locally by Floci)** used as
+**serverless / Function as a Service**: API Gateway and Lambda run the code only when a
+request arrives and scale by running more copies, so there are no servers to manage.
+S3 hosts the static files, IAM limits what each function may do, and CloudWatch collects
+the logs. The database is **Neon, a managed PaaS database**: our data has relationships
+(members, items, valuations) and `CHECK` rules, which a relational database handles better
+than DynamoDB. **Turnstile is consumed as SaaS.** Nothing is stored on the functions'
+temporary file system; all state is in Neon.
+
+Each service is deployed as its own function, so it can be updated, monitored (its own log
+group) and limited (its own IAM role) separately, while all three share one database and
+one API address.
+
+### Also deployed: Vercel + Neon (public copy)
 
 ```mermaid
 flowchart LR
@@ -28,17 +83,6 @@ flowchart LR
   api -- "SQL over TLS<br/>DATABASE_URL" --> db
   api -- "HTTPS siteverify<br/>secret key" --> cf
 ```
-
-| Layer | Responsibility | Cloud service | Talks to |
-|---|---|---|---|
-| Presentation | Forms, lists, loading and error messages; no secrets | Vercel static hosting | API over HTTPS/JSON; Turnstile widget |
-| Application | Login check, role check, validation, business rules, duplicate matching, summaries | Vercel Function (Express) | Neon over TLS; Cloudflare siteverify over HTTPS |
-| Data | Persistent records with relationships and `CHECK` rules | Neon Postgres | Reached only through the API |
-
-Cloud model: **public cloud, PaaS** (Vercel runs the code, Neon runs the database) with
-**serverless compute** (the API runs on demand and scales automatically) and
-**Turnstile consumed as SaaS**. Nothing is stored on the function's temporary file system;
-all state is in Neon.
 
 ## 2. Database (entity relationship)
 
@@ -112,12 +156,14 @@ sequenceDiagram
   autonumber
   actor Owner as Owner (browser)
   participant CF as Cloudflare Turnstile
-  participant API as Express API (Vercel)
+  participant GW as API Gateway
+  participant API as Lambda team27-catalogue-api
   participant DB as Neon Postgres
 
   Owner->>CF: Widget checks the browser
   CF-->>Owner: One-time token
-  Owner->>API: POST /api/items (JSON + Bearer token + X-Turnstile-Token)
+  Owner->>GW: POST /api/items (JSON + Bearer token + X-Turnstile-Token)
+  GW->>API: route POST /api/items -> Catalogue function
   API->>API: auth middleware: verify JWT (401 if invalid)
   API->>CF: siteverify(secret, token)
   CF-->>API: success true / false (403 if false, 503 if unreachable)
@@ -139,14 +185,15 @@ sequenceDiagram
 
 ```
 USER-CONTROLLED SIDE                    APPLICATION-CONTROLLED SIDE
-Browser: forms, config.js (public)  --HTTPS-->  Express API  --TLS-->  Neon
+Browser: forms, config.js (public)  --HTTP(S)-->  API Gateway -> Lambda  --TLS-->  Neon
           Turnstile widget                      secrets in env vars:
                                                 DATABASE_URL, JWT_SECRET,
                                                 TURNSTILE_SECRET_KEY
 ```
 
 1. The API validates every request; browser checks are only for convenience.
-2. The browser never reaches the database; only the API has `DATABASE_URL`.
+2. The browser never reaches the database; only the Lambda functions have `DATABASE_URL`,
+   and only the Catalogue function has the Turnstile secret key.
 3. Roles are decided on the server from `collection_members`, never from what the browser sends.
 4. Data is shown with `textContent`, never `innerHTML`, and the Content-Security-Policy only
    allows the site's own scripts and Cloudflare's widget.
