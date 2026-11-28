@@ -169,6 +169,7 @@ async function loadCollections(preferredId) {
 }
 
 async function signIn() {
+  if (shared) shared.renderHeader('wishlist'); // Integration: shared header with the user and navigation
   byId('account').hidden = true;
   byId('workspace').hidden = false;
   byId('sign-out').hidden = false;
@@ -181,6 +182,7 @@ function signOut() {
   collections = [];
   sessionStorage.removeItem(tokenKey);
   if (shared) shared.session.clear(); // Integration: sign out of the whole app
+  if (shared) shared.renderHeader('wishlist'); // Integration: header without the signed-in parts
   byId('workspace').hidden = true;
   byId('account').hidden = false;
   byId('sign-out').hidden = true;
@@ -273,4 +275,5 @@ byId('sign-out').addEventListener('click', () => {
   announce('Signed out.');
 });
 selection.addEventListener('change', () => run(() => showCollection(selection.value)));
+if (shared) shared.renderHeader('wishlist'); // Integration: shared header on page load
 if (token) run(signIn);
