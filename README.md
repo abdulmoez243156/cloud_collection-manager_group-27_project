@@ -46,7 +46,7 @@ connection string and the secret keys; they are kept in environment variables, n
 
 ```
 backend/
-  createApp.js         Shared Express setup: middleware, health check, error handling
+  setupApp.js          Shared Express setup: middleware, health check, error handling
   app.js               The full API (all three services), used by server.js and Vercel
   server.js            Runs app.js on your PC (npm run dev)
   lambdas/             One Lambda entry file per service (catalogue, wishlist, valuation)

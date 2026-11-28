@@ -1,5 +1,6 @@
-// Builds the Express app: the middleware every service shares, then the
-// routes passed in by the caller.
+// Sets up an Express app with what every service shares: logging, security
+// headers, CORS, JSON parsing, the health check and rate limits, then the
+// routes passed in, then the 404 and error handlers.
 //   app.js          passes all routes (used on a PC and on Vercel)
 //   lambdas/*.js    each pass only their own service's routes (Floci / AWS Lambda)
 require('dotenv').config({ quiet: true });
@@ -17,9 +18,7 @@ function runtimeName() {
   return 'pc';
 }
 
-function createApp(addRoutes) {
-  const app = express();
-
+function setupApp(app, routes) {
   // Do not advertise the framework in a response header.
   app.disable('x-powered-by');
 
@@ -82,8 +81,10 @@ function createApp(addRoutes) {
   app.use('/api/auth', authLimiter);
   app.use('/api', apiLimiter);
 
-  // The service routes.
-  addRoutes(app);
+  // The service routes: [path, router] pairs.
+  for (const [path, router] of routes) {
+    app.use(path, router);
+  }
 
   // No route matched (Lab 4 error format).
   app.use((req, res) => {
@@ -124,4 +125,4 @@ function createApp(addRoutes) {
   return app;
 }
 
-module.exports = createApp;
+module.exports = setupApp;
