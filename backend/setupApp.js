@@ -1,8 +1,8 @@
-// Sets up an Express app with what every service shares: logging, security
-// headers, CORS, JSON parsing, the health check and rate limits, then the
-// routes passed in, then the 404 and error handlers.
-//   app.js          passes all routes (used on a PC and on Vercel)
-//   lambdas/*.js    each pass only their own service's routes (Floci / AWS Lambda)
+// Adds what every service shares to an Express app: logging, security headers,
+// CORS, JSON parsing, the health check and the rate limits, then the routes it
+// is given, then the 404 and error handlers (the same order as Lab 4).
+//   app.js         gives all the routes (npm run dev on a PC, and Vercel)
+//   lambdas/*.js   each give only their own service's routes (Floci Lambda)
 require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
@@ -22,22 +22,20 @@ function setupApp(app, routes) {
   // Do not advertise the framework in a response header.
   app.disable('x-powered-by');
 
-  // Logging and monitoring: one line per request with its result and duration.
-  // On Vercel they appear in the project's Logs tab, on Lambda in CloudWatch Logs.
-  // Only the path is logged, never headers or bodies, so tokens and passwords
-  // can never end up in the logs.
+  // Log every request (Lab 4), with its status code and time once it is done.
+  // On Lambda these lines go to CloudWatch Logs, on Vercel to the Logs tab.
+  // Headers and bodies are never logged, so tokens and passwords stay out.
   app.use((req, res, next) => {
     const started = Date.now();
     res.on('finish', () => {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${res.statusCode} ${Date.now() - started}ms`);
+      console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - started}ms`);
     });
     next();
   });
 
   app.use(securityHeaders);
 
-  // Allowed frontend origins come from the environment (comma-separated):
-  // the local frontend and the deployed Vercel frontend.
+  // Allowed frontend origins come from CORS_ORIGINS (comma-separated, Lab 5).
   const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:8080')
     .split(',')
     .map((origin) => origin.trim())
@@ -81,7 +79,7 @@ function setupApp(app, routes) {
   app.use('/api/auth', authLimiter);
   app.use('/api', apiLimiter);
 
-  // The service routes: [path, router] pairs.
+  // The service routes, each one a [path, router] pair.
   for (const [path, router] of routes) {
     app.use(path, router);
   }

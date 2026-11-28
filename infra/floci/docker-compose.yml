@@ -1,7 +1,7 @@
 # Floci: a free copy of AWS that runs on your laptop (Lab 7 setup).
-#   Start:    docker compose -f infra/floci/compose.yml up -d
+#   Start:    docker compose -f infra/floci/docker-compose.yml up -d
 #   Console:  http://localhost:4566/_floci/ui   (Floci Dash, looks like the AWS Console)
-#   Stop:     docker compose -f infra/floci/compose.yml down   (your data is kept)
+#   Stop:     docker compose -f infra/floci/docker-compose.yml down   (your data is kept)
 name: team27-floci
 
 services:

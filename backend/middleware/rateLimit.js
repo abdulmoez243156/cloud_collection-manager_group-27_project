@@ -5,15 +5,15 @@
 // Sliding window: for every IP we keep the times of its recent requests and
 // count only those inside the window.
 //
-// Limitation (also noted in Lab 8): the counts live in this process's memory.
-// On Vercel each running function instance counts separately and the counts
-// reset when an instance stops, so this is a speed bump, not a hard global
-// limit. A shared store (for example a database table or Redis) would make it
-// global.
+// Limitation (also noted in Lab 8): the counts live in memory. Each running
+// Lambda (or Vercel) instance counts on its own, and the counts reset when the
+// instance stops, so this is a speed bump, not a global limit. A shared store,
+// such as a database table, would make it global.
 
-// The real client IP. On Vercel the platform sets X-Forwarded-For itself, so it
-// can be trusted there. Elsewhere it is ignored, because any client could send
-// a fake header to dodge the limit.
+// The client IP. On Vercel the platform sets X-Forwarded-For itself, so it can
+// be trusted there. Elsewhere it is ignored, because any client could send a
+// fake one to dodge the limit. On Lambda, serverless-http gives the source IP
+// that API Gateway saw.
 function clientIp(req) {
   const forwarded = process.env.VERCEL ? req.headers['x-forwarded-for'] : undefined;
   return String(forwarded || req.socket.remoteAddress || 'unknown').split(',')[0].trim();

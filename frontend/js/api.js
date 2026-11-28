@@ -1,9 +1,7 @@
 // Shared frontend code used by every page: the login session, the selected
 // collection, one request helper for all API calls, and small UI helpers.
-//
-// Everything lives inside one object, CM, so these names can never clash with
-// variables declared by other pages' scripts (all classic scripts share one
-// global scope in the browser).
+// Everything is kept inside one object, CM, because all the page scripts share
+// one global scope, and a name like "money" must not clash with another page's.
 'use strict';
 
 const CM = (() => {
@@ -19,9 +17,7 @@ const CM = (() => {
     { page: 'valuation', href: 'valuation.html', label: 'Valuation & Reports' }
   ];
 
-  // -------------------------------------------------------------------------
-  // Browser storage (wrapped in try/catch: storage can be disabled or full)
-  // -------------------------------------------------------------------------
+  // Browser storage. try/catch because storage can be turned off or full.
   function read(key, storage = localStorage) {
     try {
       return JSON.parse(storage.getItem(key));
@@ -62,10 +58,12 @@ const CM = (() => {
       return saved;
     },
     token() {
-      return session.get()?.token ?? null;
+      const saved = session.get();
+      return saved ? saved.token : null;
     },
     user() {
-      return session.get()?.user ?? null;
+      const saved = session.get();
+      return saved ? saved.user : null;
     },
     save(token, user) {
       write(SESSION_KEY, { token, user });
@@ -114,18 +112,18 @@ const CM = (() => {
     return false;
   }
 
-  // -------------------------------------------------------------------------
-  // One helper for every API call (based on the Lab 5 apiRequest helper)
-  // -------------------------------------------------------------------------
-  class ApiError extends Error {
-    constructor(status, body) {
-      super(body?.error?.message || `Request failed (${status}).`);
-      this.status = status;
-      this.code = body?.error?.code;
-      this.body = body;
-    }
+  // An Error that also keeps the status code and the API's JSON answer, so a
+  // page can react to a code such as POSSIBLE_DUPLICATE.
+  function apiError(status, body) {
+    const message = body && body.error ? body.error.message : `Request failed (${status}).`;
+    const error = new Error(message);
+    error.status = status;
+    error.code = body && body.error ? body.error.code : undefined;
+    error.body = body;
+    return error;
   }
 
+  // One helper for every API call, based on the Lab 5 apiRequest helper.
   async function request(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
     const sendHeaders = { ...headers };
     if (body !== undefined) sendHeaders['Content-Type'] = 'application/json';
@@ -141,7 +139,7 @@ const CM = (() => {
       });
     } catch {
       // fetch() only throws when no response arrives at all.
-      throw new ApiError(0, {
+      throw apiError(0, {
         error: { code: 'NETWORK_ERROR', message: 'Cannot reach the API. Check your connection and try again.' }
       });
     }
@@ -152,19 +150,17 @@ const CM = (() => {
 
     if (!response.ok) {
       // A missing, expired or invalid token: end the session and go to Home.
-      if (auth && (response.status === 401 || data?.error?.code === 'INVALID_TOKEN')) {
+      if (auth && response.status === 401) {
         session.clear();
         goHome('Your session has ended. Please sign in again.', true);
       }
-      throw new ApiError(response.status, data);
+      throw apiError(response.status, data);
     }
     return data;
   }
 
-  // -------------------------------------------------------------------------
-  // UI helpers. Text is always set with textContent, never innerHTML, so data
-  // from the database is shown as plain text and cannot inject HTML or scripts.
-  // -------------------------------------------------------------------------
+  // Creates an element. Text is always set with textContent, never innerHTML,
+  // so data from the database is shown as plain text and cannot run as HTML.
   function el(tag, options = {}, children = []) {
     const node = document.createElement(tag);
     if (options.className) node.className = options.className;
@@ -172,7 +168,7 @@ const CM = (() => {
     for (const [name, value] of Object.entries(options.attrs || {})) {
       if (value !== undefined && value !== null && value !== false) node.setAttribute(name, value);
     }
-    for (const child of [].concat(children)) {
+    for (const child of Array.isArray(children) ? children : [children]) {
       if (child) node.append(child);
     }
     return node;
@@ -239,6 +235,8 @@ const CM = (() => {
     if (!header) return;
     const user = session.user();
     const collection = selectedCollection.get();
+    // style.css shows the header as a sidebar when the body has this class.
+    document.body.classList.toggle('signed-in', Boolean(user));
 
     const brand = el('a', { className: 'brand', attrs: { href: 'index.html' } }, [
       el('span', { className: 'brand-mark', text: 'CM', attrs: { 'aria-hidden': 'true' } }),
@@ -279,7 +277,6 @@ const CM = (() => {
     session,
     selectedCollection,
     request,
-    ApiError,
     requireLogin,
     flash,
     takeFlash,

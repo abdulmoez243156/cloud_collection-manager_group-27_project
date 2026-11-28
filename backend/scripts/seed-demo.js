@@ -1,5 +1,5 @@
-// Fills the Floci demo database (Neon branch floci-demo) with realistic demo data:
-// three accounts, six collections, about 66 items with valuation history, and
+// Fills the Floci demo database (Neon branch floci-demo) with demo data:
+// three accounts, six collections, 66 items with valuation history, and
 // wishlist entries.
 //
 // Run from the project folder:   node backend/scripts/seed-demo.js
@@ -174,9 +174,9 @@ const NOTES = ['Dealer estimate', 'Auction result', 'Online marketplace average'
   'Collector club valuation', 'Insurance appraisal', 'Price guide 2026 edition'];
 const pad = (n) => String(n).padStart(2, '0');
 
-// Builds 0 to 3 dated estimates for an item, one per year from 2024 to 2026,
-// never before the date it was bought. Items in good shape gain value over
-// time; worn ones lose value. The pattern is fixed, so every run is the same.
+// Gives an item 0 to 3 estimates, one a year up to 2026, never before the day
+// it was bought. Items in good condition go up in value, fair and poor ones go
+// down. No random numbers, so every run gives the same data.
 function valuationsFor(index, condition, acquired, cost, archived) {
   if (archived) return [];
   const count = [2, 1, 3, 0, 2, 1, 3][index % 7];
@@ -191,28 +191,34 @@ function valuationsFor(index, condition, acquired, cost, archived) {
   return list;
 }
 
-// Creates the account if it does not exist yet. An existing account keeps its password.
+// Returns the id of the account, and creates it first if it does not exist.
+// An existing account keeps its password.
+let createdAccounts = 0;
 async function findOrCreateUser(account) {
   const [existing] = await sql`SELECT id FROM users WHERE email = ${account.email}`;
-  if (existing) return { id: existing.id, created: false };
+  if (existing) return existing.id;
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const [user] = await sql`
     INSERT INTO users (name, email, password_hash)
     VALUES (${account.name}, ${account.email}, ${passwordHash})
     RETURNING id`;
-  return { id: user.id, created: true };
+  createdAccounts += 1;
+  return user.id;
 }
 
 async function main() {
   const host = new URL(process.env.DATABASE_URL).host;
   console.log(`Seeding demo data into ${host}`);
 
-  const users = new Map();
-  for (const account of [OWNER, VIEWER, MONA]) users.set(account, await findOrCreateUser(account));
+  // email -> user id
+  const userIds = {};
+  for (const account of [OWNER, VIEWER, MONA]) {
+    userIds[account.email] = await findOrCreateUser(account);
+  }
 
   const totals = { items: 0, valuations: 0, wishlist: 0 };
   for (const c of COLLECTIONS) {
-    const ownerId = users.get(c.owner).id;
+    const ownerId = userIds[c.owner.email];
 
     // Remove last run's copy of this demo collection (items, valuations and
     // wishlist entries go with it because of ON DELETE CASCADE).
@@ -226,11 +232,13 @@ async function main() {
     await sql`INSERT INTO collection_members (collection_id, user_id, role) VALUES (${collection.id}, ${ownerId}, 'owner')`;
     for (const viewer of c.viewers) {
       await sql`INSERT INTO collection_members (collection_id, user_id, role)
-                VALUES (${collection.id}, ${users.get(viewer).id}, 'viewer')`;
+                VALUES (${collection.id}, ${userIds[viewer.email]}, 'viewer')`;
     }
 
     let valuationCount = 0;
-    for (const [index, [title, category, condition, acquired, cost, description, archived = false]] of c.items.entries()) {
+    for (let index = 0; index < c.items.length; index += 1) {
+      const [title, category, condition, acquired, cost, description] = c.items[index];
+      const archived = c.items[index][6] === true;
       const [item] = await sql`
         INSERT INTO items (collection_id, title, category, description, condition,
                            acquisition_date, acquisition_cost, is_archived)
@@ -265,10 +273,11 @@ async function main() {
   console.log('  team27.owner@demo.com    owns five collections, can only view Arabic Vinyl Records');
   console.log('  team27.viewer@demo.com   can only view; has no access to Vintage Watches or the records');
   console.log('  mona.hassan@demo.com     owns Arabic Vinyl Records, can view Egyptian Coins');
-  const created = [OWNER, VIEWER, MONA].some((account) => users.get(account).created);
-  console.log(created
-    ? `  Password for new accounts: ${DEMO_PASSWORD}`
-    : '  All accounts already existed, so their passwords were not changed.');
+  if (createdAccounts > 0) {
+    console.log(`  Password for new accounts: ${DEMO_PASSWORD}`);
+  } else {
+    console.log('  All accounts already existed, so their passwords were not changed.');
+  }
 }
 
 main().catch((error) => {

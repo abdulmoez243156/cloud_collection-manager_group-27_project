@@ -197,4 +197,5 @@ Browser: forms, config.js (public)  --HTTP(S)-->  API Gateway -> Lambda  --TLS--
 3. Roles are decided on the server from `collection_members`, never from what the browser sends.
 4. Data is shown with `textContent`, never `innerHTML`, and the Content-Security-Policy only
    allows the site's own scripts and Cloudflare's widget.
-5. Errors return generic messages; details go only to the server logs (Vercel Logs).
+5. Errors return generic messages; details go only to the server logs (CloudWatch Logs
+   on Floci, the Logs tab on Vercel).

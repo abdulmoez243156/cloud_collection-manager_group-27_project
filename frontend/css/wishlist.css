@@ -43,7 +43,7 @@
 .buttons { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 /* The header already has a Sign out button once signed in. */
-.app-header:has(.nav) ~ .wishlist-page #sign-out { display: none; }
+body.signed-in .wishlist-page #sign-out { display: none; }
 
 .wishlist-page details { margin-top: 1rem; }
 .wishlist-page details form { margin-top: .8rem; }

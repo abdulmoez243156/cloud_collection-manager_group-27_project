@@ -1,25 +1,19 @@
-// Duplicate detection for the Catalogue (Function 3).
-//
-// Problem it solves: collectors keep records in scattered spreadsheets and
-// often record the same coin, stamp or sneaker twice. Before an item is saved,
-// the API compares its title and category with the items already in the same
-// collection and reports likely duplicates.
-//
-// Two rules, checked in order:
-//   1. same_title     - the titles are identical after normalising
-//                       ("1952 Silver Pound!" equals "1952 silver  pound")
-//   2. similar_title  - same category AND the titles share most of their
-//                       words (word overlap >= 60%), or one title contains
-//                       the other ("Jordan 1 Chicago" vs "Jordan 1 Chicago 1985")
-//
-// This file has no database or HTTP code: it receives plain objects and
-// returns plain objects, so it can be tested and explained on its own.
+// Duplicate detection for the Catalogue (F3).
+// Collectors often record the same coin, stamp or sneaker twice. Before an item
+// is saved, its title and category are compared with the items already in the
+// collection. Two rules:
+//   same_title     the titles are equal after normalising
+//                  ("1952 Silver Pound!" and "1952 silver  pound")
+//   similar_title  same category, and the titles share most of their words
+//                  (60% or more), or one title contains the other
+//                  ("Jordan 1 Chicago" and "Jordan 1 Chicago 1985")
+// No database or HTTP code here: plain objects in, plain objects out.
 
 const SIMILARITY_THRESHOLD = 0.6;
 const MAX_MATCHES = 5;
 
-// Lower-case and keep only letters and digits (any alphabet, including Arabic),
-// with single spaces between words.
+// Lower case, letters and digits only (any alphabet, so Arabic titles work
+// too), one space between words.
 function normalise(text) {
   return String(text)
     .toLowerCase()
@@ -31,8 +25,8 @@ function words(text) {
   return new Set(normalise(text).split(' ').filter(Boolean));
 }
 
-// Jaccard similarity: shared words divided by all distinct words (0 to 1).
-// {jordan, 1, chicago} vs {jordan, 1, chicago, 1985} -> 3 / 4 = 0.75
+// Shared words divided by all the different words, from 0 to 1.
+// {jordan, 1, chicago} and {jordan, 1, chicago, 1985} -> 3 / 4 = 0.75
 function wordOverlap(a, b) {
   const setA = words(a);
   const setB = words(b);
@@ -65,8 +59,8 @@ function findDuplicates(candidate, existing, excludeId = null) {
       score = 1;
     } else if (sameCategory) {
       const overlap = wordOverlap(title, otherTitle);
-      // "contains" only counts for titles of 4+ characters, so a title like
-      // "A" does not match every item that has the letter a in it.
+      // "contains" only counts for titles of 4 or more characters, so a
+      // title like "A" does not match every item with an a in it.
       const shorter = title.length <= otherTitle.length ? title : otherTitle;
       const longer = shorter === title ? otherTitle : title;
       const contains = shorter.length >= 4 && longer.includes(shorter);

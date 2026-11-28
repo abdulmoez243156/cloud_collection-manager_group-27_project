@@ -18,9 +18,9 @@ Catalogue Lambda --> Cloudflare Turnstile siteverify (external API)
 
 | Service | Owner | Lambda | Its AWS services |
 |---|---|---|---|
-| Catalogue | Abdulmoez | `team27-catalogue-api` | Lambda, API Gateway (6 routes), IAM role, CloudWatch Logs |
-| Wishlist | Ahmed | `team27-wishlist-api` | Lambda, API Gateway (5 routes), IAM role, CloudWatch Logs |
-| Valuation | Abdelrahman | `team27-valuation-api` | Lambda, API Gateway (16 routes), IAM role, CloudWatch Logs |
+| Catalogue | Abdulmoez | `team27-catalogue-api` | Lambda, API Gateway (6 routes + 4 OPTIONS), IAM role, CloudWatch Logs |
+| Wishlist | Ahmed | `team27-wishlist-api` | Lambda, API Gateway (5 routes + 3 OPTIONS), IAM role, CloudWatch Logs |
+| Valuation | Abdelrahman | `team27-valuation-api` | Lambda, API Gateway (16 routes + 11 OPTIONS), IAM role, CloudWatch Logs |
 | Website (shared) | | | S3 |
 
 All three functions run the same `lambda.zip`. Each starts from its own file in
@@ -60,7 +60,7 @@ Open Git Bash in the project folder (for example
 `cd /c/Users/<you>/Documents/cloud_collection-manager_group-27_project`) and run:
 
 ```
-docker compose -f infra/floci/compose.yml up -d
+docker compose -f infra/floci/docker-compose.yml up -d
 aws sts get-caller-identity --query Account --output text
 ```
 
@@ -114,16 +114,17 @@ by API Gateway, CORS for our website and for another website, and the S3 files.
 
 ## Step 7: Use the app
 
-To fill the demo database with ready-made data first (two accounts, three collections with
-items, valuation history and wishlist entries), run:
+To fill the demo database with ready-made data first (three accounts, six collections,
+66 items with valuation history, and wishlist entries), run:
 
 ```
 node backend/scripts/seed-demo.js
 ```
 
 It only uses `backend/.env.floci`, so the Vercel data is never touched, and it can be run again
-to reset the demo collections. It prints the demo logins (`team27.owner@demo.com` owns the
-collections, `team27.viewer@demo.com` can only view them).
+to reset the demo collections. It prints the demo logins: `team27.owner@demo.com` owns five
+collections, `team27.viewer@demo.com` can only view, and `mona.hassan@demo.com` owns one
+collection that the owner account can only view.
 
 Open http://localhost:4566/team27-collection-web/index.html (type `localhost`, not
 `127.0.0.1`). The Neon branch is a copy of the live data, so the existing accounts work.
@@ -167,8 +168,8 @@ printed by `deploy.sh` (without `/api`), and set `liveEmail` and `livePassword`.
 ## Step 10: Stop and start again
 
 ```
-docker compose -f infra/floci/compose.yml down     # stop (everything is kept)
-docker compose -f infra/floci/compose.yml up -d    # start again later
+docker compose -f infra/floci/docker-compose.yml down     # stop (everything is kept)
+docker compose -f infra/floci/docker-compose.yml up -d    # start again later
 ```
 
 ## If something goes wrong

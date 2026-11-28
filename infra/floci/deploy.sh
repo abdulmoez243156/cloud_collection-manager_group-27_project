@@ -12,6 +12,7 @@
 #   CloudWatch   one log group per function
 # The database stays on Neon. Its address and the secrets come from backend/.env.floci.
 export AWS_PROFILE=floci AWS_PAGER="" MSYS_NO_PATHCONV=1
+cd "$(dirname "$0")/../.." || exit 1
 
 ACCOUNT=000000000000
 REGION=us-east-1
@@ -21,8 +22,10 @@ WEBSITE=http://localhost:4566
 ENV_FILE=backend/.env.floci
 TMP=infra/floci/.tmp
 
-# The routes each service owns (method + path). API Gateway answers 404 to
-# anything that is not on these lists, and the request never reaches Lambda.
+# The routes each service owns (method + path), like the route list in Lab 7.
+# API Gateway answers 404 to anything that is not on these lists, and the
+# request never reaches Lambda. OPTIONS is the question the browser asks first
+# (CORS), so every path also has an OPTIONS route.
 CATALOGUE_ROUTES=(
   "GET /api/items"
   "POST /api/items"
@@ -30,6 +33,10 @@ CATALOGUE_ROUTES=(
   "GET /api/items/duplicates"
   "GET /api/items/{id}"
   "PATCH /api/items/{id}"
+  "OPTIONS /api/items"
+  "OPTIONS /api/items/categories"
+  "OPTIONS /api/items/duplicates"
+  "OPTIONS /api/items/{id}"
 )
 WISHLIST_ROUTES=(
   "GET /api/collections/{id}/wishlist"
@@ -37,6 +44,9 @@ WISHLIST_ROUTES=(
   "GET /api/collections/{id}/wishlist/budget-plan"
   "PATCH /api/collections/{id}/wishlist/{entryId}"
   "DELETE /api/collections/{id}/wishlist/{entryId}"
+  "OPTIONS /api/collections/{id}/wishlist"
+  "OPTIONS /api/collections/{id}/wishlist/budget-plan"
+  "OPTIONS /api/collections/{id}/wishlist/{entryId}"
 )
 VALUATION_ROUTES=(
   "GET /api/health"
@@ -55,15 +65,26 @@ VALUATION_ROUTES=(
   "GET /api/reports/summary"
   "GET /api/reports/categories"
   "GET /api/collections/{id}/report"
+  "OPTIONS /api/health"
+  "OPTIONS /api/auth/register"
+  "OPTIONS /api/auth/login"
+  "OPTIONS /api/collections"
+  "OPTIONS /api/collections/{id}/members"
+  "OPTIONS /api/collections/{id}/members/{userId}"
+  "OPTIONS /api/items/{id}/valuations"
+  "OPTIONS /api/valuations/{id}"
+  "OPTIONS /api/reports/summary"
+  "OPTIONS /api/reports/categories"
+  "OPTIONS /api/collections/{id}/report"
 )
 
-# ---- Checks before we start ----
+# Checks before we start
 if [ ! -f "$ENV_FILE" ]; then
   echo "Missing $ENV_FILE. Create it first (docs/floci.md, step 4)."; exit 1
 fi
 if [ "$(aws sts get-caller-identity --query Account --output text 2>/dev/null)" != "$ACCOUNT" ]; then
   echo "Floci is not answering on the floci profile."
-  echo "Start Floci: docker compose -f infra/floci/compose.yml up -d   (docs/floci.md, steps 2 and 3)"; exit 1
+  echo "Start Floci: docker compose -f infra/floci/docker-compose.yml up -d   (docs/floci.md, steps 2 and 3)"; exit 1
 fi
 
 # Read one value from .env.floci (quotes and Windows line endings removed).
@@ -98,16 +119,23 @@ for SERVICE in catalogue wishlist valuation; do
 done
 
 echo "3/6 Lambda functions"
-# Each function only gets the secrets it needs: only Catalogue verifies Turnstile.
-write_env_file() {
-  local extra=""
-  if [ "$1" = "catalogue" ]; then extra=",\"TURNSTILE_SECRET_KEY\":\"$TURNSTILE_SECRET_KEY\""; fi
-  printf '{"Variables":{"NODE_ENV":"production","CORS_ORIGINS":"%s","DATABASE_URL":"%s","JWT_SECRET":"%s"%s}}' \
-    "$WEBSITE" "$DATABASE_URL" "$JWT_SECRET" "$extra" > $TMP/$1-env.json
-}
+# The environment variables go in a JSON file, because the Neon address has
+# characters that the short Variables={...} form cannot take. Each function
+# only gets the secrets it needs: only Catalogue checks Turnstile.
 for SERVICE in catalogue wishlist valuation; do
   FUNCTION=team27-$SERVICE-api
-  write_env_file $SERVICE
+  TURNSTILE_LINE=""
+  if [ $SERVICE = catalogue ]; then
+    TURNSTILE_LINE=", \"TURNSTILE_SECRET_KEY\": \"$TURNSTILE_SECRET_KEY\""
+  fi
+  cat > $TMP/$SERVICE-env.json <<EOF
+{"Variables": {
+  "NODE_ENV": "production",
+  "CORS_ORIGINS": "$WEBSITE",
+  "DATABASE_URL": "$DATABASE_URL",
+  "JWT_SECRET": "$JWT_SECRET"$TURNSTILE_LINE
+}}
+EOF
   if aws lambda get-function --function-name $FUNCTION > /dev/null 2>&1; then
     aws lambda update-function-code --function-name $FUNCTION \
       --zip-file fileb://backend/lambda.zip > /dev/null
@@ -132,13 +160,14 @@ if [ -z "$API_ID" ] || [ "$API_ID" = "None" ]; then
   API_ID=$(aws apigatewayv2 create-api --name $API_NAME --protocol-type HTTP --query ApiId --output text)
 fi
 
-# Connects one function to the API: integration, its routes (plus OPTIONS for
-# the browser's CORS check on every path), and permission for the API to call it.
+# Connects one function to the API (Lab 7, Part 3): its integration, its
+# routes, and the permission for API Gateway to call the function.
+#   connect_service <service> <routes...>
 connect_service() {
-  local FUNCTION=team27-$1-api
+  SERVICE=$1
   shift
-  local ARN=arn:aws:lambda:$REGION:$ACCOUNT:function:$FUNCTION
-  local INTEGRATION_ID
+  FUNCTION=team27-$SERVICE-api
+  ARN=arn:aws:lambda:$REGION:$ACCOUNT:function:$FUNCTION
   INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id $API_ID \
     --query "Items[?IntegrationUri=='$ARN'].IntegrationId | [0]" --output text)
   if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
@@ -146,13 +175,8 @@ connect_service() {
       --integration-type AWS_PROXY --payload-format-version 2.0 \
       --integration-uri $ARN --query IntegrationId --output text)
   fi
-  local ROUTE ROUTE_PATH
   for ROUTE in "$@"; do
     aws apigatewayv2 create-route --api-id $API_ID --route-key "$ROUTE" \
-      --target integrations/$INTEGRATION_ID > /dev/null 2>&1
-  done
-  for ROUTE_PATH in $(printf '%s\n' "$@" | cut -d' ' -f2 | sort -u); do
-    aws apigatewayv2 create-route --api-id $API_ID --route-key "OPTIONS $ROUTE_PATH" \
       --target integrations/$INTEGRATION_ID > /dev/null 2>&1
   done
   aws lambda add-permission --function-name $FUNCTION --statement-id apigw-invoke \

@@ -38,9 +38,7 @@ function handleSubmit(form, action) {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Signed out: login and registration
-// ---------------------------------------------------------------------------
 async function logIn(email, password) {
   const result = await CM.request('/auth/login', {
     method: 'POST',
@@ -70,9 +68,7 @@ handleSubmit(homeEls.registerForm, async ({ name, email, password }) => {
   CM.notify('Account created. Start by creating your first collection.');
 });
 
-// ---------------------------------------------------------------------------
 // Signed in: collections
-// ---------------------------------------------------------------------------
 function renderCollections() {
   const selected = CM.selectedCollection.get();
   if (homeCollections.length === 0) {
@@ -150,9 +146,7 @@ handleSubmit(homeEls.collectionForm, async ({ title, currency }) => {
   CM.notify(`Collection "${collection.title}" created.`);
 });
 
-// ---------------------------------------------------------------------------
 // Signed in: members (owner only)
-// ---------------------------------------------------------------------------
 async function loadMembers() {
   const selected = CM.selectedCollection.get();
   const isOwner = selected?.role === 'owner';
@@ -197,9 +191,7 @@ handleSubmit(homeEls.memberForm, async ({ email }) => {
   CM.notify(`${email.trim()} can now view this collection.`);
 });
 
-// ---------------------------------------------------------------------------
 // Page start
-// ---------------------------------------------------------------------------
 async function showSignedIn() {
   const user = CM.session.user();
   homeEls.signedOut.hidden = true;
@@ -215,7 +207,7 @@ function showSignedOut() {
   CM.renderHeader('home');
 }
 
-(async () => {
+async function startPage() {
   const message = CM.takeFlash();
   if (message) CM.notify(message.message, message.isError);
   if (!CM.session.get()) {
@@ -228,4 +220,6 @@ function showSignedOut() {
     if (!CM.session.get()) showSignedOut();
     CM.notify(error.message, true);
   }
-})();
+}
+
+startPage();

@@ -55,16 +55,13 @@ const ui = {
 const state = {
   collection: null,   // { id, title, currency, role }
   editing: null,      // the item being edited, or null when adding
-  pending: null,      // a save waiting for "Save anyway" after a 409
-  hintRequest: 0      // ignores slow duplicate-check answers that arrive late
+  pending: null       // a save waiting for "Save anyway" after a 409
 };
 
 const isOwner = () => state.collection?.role === 'owner';
 const conditionLabel = (value) => CONDITION_LABELS[value] || value;
 
-// ---------------------------------------------------------------------------
 // Loading data
-// ---------------------------------------------------------------------------
 
 function filterQuery() {
   const values = Object.fromEntries(new FormData(ui.filters));
@@ -102,14 +99,20 @@ async function loadCategories() {
   if (categories.includes(current)) select.value = current;
 }
 
-// ---------------------------------------------------------------------------
 // Rendering the item cards
-// ---------------------------------------------------------------------------
+
+// True when the user has typed a search or changed a filter.
+function filtersInUse() {
+  const fields = ui.filters.elements;
+  return fields.namedItem('search').value.trim() !== ''
+    || fields.namedItem('category').value !== ''
+    || fields.namedItem('condition').value !== ''
+    || fields.namedItem('archived').value !== 'false';
+}
 
 function renderItems(items) {
   if (items.length === 0) {
-    const filtered = [...new FormData(ui.filters).entries()]
-      .some(([key, value]) => value && !(key === 'archived' && value === 'false') && key !== 'sort');
+    const filtered = filtersInUse();
     ui.items.replaceChildren(CM.el('div', { className: 'empty-state' }, [
       CM.el('p', { text: filtered ? 'No items match these filters.' : 'No items in this collection yet.' }),
       !filtered && isOwner() ? CM.el('p', { className: 'muted', text: 'Use the form to add your first item.' }) : null
@@ -155,9 +158,7 @@ function renderItemCard(item) {
   ]);
 }
 
-// ---------------------------------------------------------------------------
 // F2: item details dialog
-// ---------------------------------------------------------------------------
 
 async function showDetails(itemId) {
   try {
@@ -178,9 +179,12 @@ async function showDetails(itemId) {
       ['Last changed', CM.formatDate(item.updated_at)],
       ['Your access', role]
     ];
+    const list = CM.el('dl', { className: 'details' });
+    for (const [label, text] of rows) {
+      list.append(CM.el('dt', { text: label }), CM.el('dd', { text }));
+    }
     ui.dialogTitle.textContent = item.title;
-    ui.dialogBody.replaceChildren(CM.el('dl', { className: 'details' },
-      rows.flatMap(([label, text]) => [CM.el('dt', { text: label }), CM.el('dd', { text })])));
+    ui.dialogBody.replaceChildren(list);
     ui.dialog.showModal();
   } catch (error) {
     CM.notify(error.message, true);
@@ -193,9 +197,7 @@ ui.dialog.addEventListener('click', (event) => {
   if (event.target === ui.dialog) ui.dialog.close();
 });
 
-// ---------------------------------------------------------------------------
 // F1: add and edit
-// ---------------------------------------------------------------------------
 
 // Reads the form into the JSON body the API expects. Empty optional fields
 // are sent as null.
@@ -231,9 +233,9 @@ function startEdit(item) {
   fields.namedItem('title').value = item.title;
   fields.namedItem('category').value = item.category;
   fields.namedItem('condition').value = item.condition;
-  fields.namedItem('description').value = item.description ?? '';
-  fields.namedItem('acquisition_date').value = item.acquisition_date ?? '';
-  fields.namedItem('acquisition_cost').value = item.acquisition_cost ?? '';
+  fields.namedItem('description').value = item.description || '';
+  fields.namedItem('acquisition_date').value = item.acquisition_date || '';
+  fields.namedItem('acquisition_cost').value = item.acquisition_cost || '';
   ui.editorTitle.textContent = `Edit "${item.title}"`;
   ui.saveButton.textContent = 'Save changes';
   ui.cancelEdit.hidden = false;
@@ -261,9 +263,7 @@ async function saveItem(payload, confirmDuplicate = false) {
   return `"${item.title}" added to the catalogue.`;
 }
 
-// ---------------------------------------------------------------------------
 // External API: Cloudflare Turnstile on item creation (Lab 5, Part O1)
-// ---------------------------------------------------------------------------
 // The widget gives a one-time token. It travels in the X-Turnstile-Token
 // header, so the JSON body stays the same. The server checks the token with
 // Cloudflare before saving (backend/middleware/turnstile.js).
@@ -281,7 +281,7 @@ function botCheckHeaders() {
   if (!window.turnstile || turnstileWidgetId === null) return {};
   const token = window.turnstile.getResponse(turnstileWidgetId);
   if (!token) {
-    throw Object.assign(new Error('Please complete the bot check first.'), { code: 'BOT_CHECK_PENDING' });
+    throw new Error('Please complete the bot check first.');
   }
   return { 'X-Turnstile-Token': token };
 }
@@ -310,9 +310,7 @@ ui.form.addEventListener('submit', (event) => {
 
 ui.cancelEdit.addEventListener('click', resetForm);
 
-// ---------------------------------------------------------------------------
 // F3: duplicate detection in the browser
-// ---------------------------------------------------------------------------
 
 function duplicateItems(duplicates) {
   return duplicates.map((d) => CM.el('li', {}, [
@@ -351,7 +349,6 @@ ui.dismissDuplicate.addEventListener('click', () => {
 const checkTitleAsTyped = CM.debounce(async () => {
   const title = ui.form.elements.namedItem('title').value.trim();
   const category = ui.form.elements.namedItem('category').value.trim();
-  const requestNumber = ++state.hintRequest;
   if (!title || !category) {
     ui.duplicateHint.hidden = true;
     return;
@@ -360,7 +357,6 @@ const checkTitleAsTyped = CM.debounce(async () => {
   if (state.editing) query.set('exclude_id', state.editing.id);
   try {
     const { duplicates } = await CM.request(`/items/duplicates?${query}`);
-    if (requestNumber !== state.hintRequest) return; // a newer check started
     if (duplicates.length === 0) {
       ui.duplicateHint.hidden = true;
       return;
@@ -377,9 +373,7 @@ const checkTitleAsTyped = CM.debounce(async () => {
 ui.form.elements.namedItem('title').addEventListener('input', checkTitleAsTyped);
 ui.form.elements.namedItem('category').addEventListener('input', checkTitleAsTyped);
 
-// ---------------------------------------------------------------------------
 // F1: archive and restore
-// ---------------------------------------------------------------------------
 
 async function setArchived(item, archived) {
   if (archived && !window.confirm(`Archive "${item.title}"? It will be hidden and excluded from the collection value. You can restore it later.`)) {
@@ -398,9 +392,7 @@ async function setArchived(item, archived) {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Filters
-// ---------------------------------------------------------------------------
 
 const reloadAfterTyping = CM.debounce(loadItems, 300);
 ui.filters.addEventListener('submit', (event) => {
@@ -416,9 +408,7 @@ ui.filters.addEventListener('change', (event) => {
 // "Clear": the form resets first, then the list reloads.
 ui.filters.addEventListener('reset', () => setTimeout(loadItems, 0));
 
-// ---------------------------------------------------------------------------
 // Page start
-// ---------------------------------------------------------------------------
 
 // A Turnstile token works only once, so ask the widget for a fresh one after
 // every attempt to create an item, whether it succeeded or failed.
@@ -435,7 +425,7 @@ async function chooseCollection() {
   return collection;
 }
 
-(async () => {
+async function startPage() {
   if (!CM.requireLogin()) return;
   try {
     state.collection = await chooseCollection();
@@ -452,14 +442,17 @@ async function chooseCollection() {
     if (isOwner()) renderTurnstile();
     ui.catalogue.classList.toggle('layout-single', !isOwner());
     ui.catalogue.hidden = false;
-    // Acquisition dates cannot be in the future (today in the user's own timezone).
+    // Acquisition dates cannot be in the future: today's date is the maximum.
     const now = new Date();
-    const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    ui.form.elements.namedItem('acquisition_date').max = today;
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    ui.form.elements.namedItem('acquisition_date').max = `${now.getFullYear()}-${month}-${day}`;
 
     await Promise.all([loadCategories(), loadItems()]);
   } catch (error) {
     CM.renderHeader('catalogue');
     CM.notify(error.message, true);
   }
-})();
+}
+
+startPage();

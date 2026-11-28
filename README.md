@@ -66,7 +66,7 @@ frontend/
   js/config.js         API address and Turnstile site key (the only file to edit per environment)
   js/api.js            Shared session, API request helper, header and UI helpers
   vercel.json          Security headers (Content-Security-Policy and others)
-infra/floci/           Floci: compose.yml, deploy.sh, check.sh
+infra/floci/           Floci: docker-compose.yml, deploy.sh, check.sh
 infra/iam/             IAM trust policy and one log policy per service
 postman/               API tests (see Testing)
 docs/                  Architecture, Catalogue API contract and test plan, Wishlist notes
@@ -102,7 +102,7 @@ Requirements: Node.js 20 or newer, Git, a free Neon account.
 Step-by-step guide: [`docs/floci.md`](docs/floci.md). In short, in Git Bash:
 
 ```
-docker compose -f infra/floci/compose.yml up -d
+docker compose -f infra/floci/docker-compose.yml up -d
 bash infra/floci/deploy.sh
 bash infra/floci/check.sh
 ```
@@ -120,12 +120,11 @@ The API and the frontend are two Vercel projects built from this one repository.
    variables `DATABASE_URL`, `JWT_SECRET`, `TURNSTILE_SECRET_KEY` (real secret key),
    `CORS_ORIGINS` (`http://localhost:8080` for now) and `NODE_ENV=production`. Deploy, then
    open `https://<api-project>.vercel.app/api/health`.
-2. **Point the frontend at the API.** Replace `YOUR-API-PROJECT` in `frontend/js/config.js`
-   and in the `connect-src` part of `frontend/vercel.json` with the API domain.
-3. **Turnstile.** In Cloudflare: *Turnstile > Add widget*, hostname = the frontend's Vercel
-   domain (no `https://`). Put the **site key** in `config.js` (replacing
-   `YOUR-TURNSTILE-SITE-KEY`); the **secret key** goes only in the API project's
-   `TURNSTILE_SECRET_KEY`.
+2. **Point the frontend at the API.** The API domain is in `frontend/js/config.js` and in the
+   `connect-src` part of `frontend/vercel.json` (`collection-manager-api.vercel.app`).
+3. **Turnstile.** In Cloudflare: *Turnstile > Add widget*, hostnames = the frontend's Vercel
+   domain (no `https://`) and `localhost` (for Floci). The **site key** is in `config.js`;
+   the **secret key** goes only in the API project's `TURNSTILE_SECRET_KEY`.
 4. **Frontend project.** Import the repository again with **Root Directory** `frontend` and
    framework preset *Other*. No environment variables.
 5. **Allow the frontend origin.** Add the frontend URL to the API's `CORS_ORIGINS`
